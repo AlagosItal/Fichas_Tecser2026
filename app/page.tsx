@@ -121,9 +121,8 @@ export default function AndexportGenerator() {
       const img = new (window as any).Image();
       img.src = reader.result;
       img.onload = () => {
-        // Compress image using Canvas
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
+        const MAX_WIDTH = 800; // Reduced for safety
         const scaleSize = MAX_WIDTH / img.width;
         canvas.width = MAX_WIDTH;
         canvas.height = img.height * scaleSize;
@@ -131,12 +130,16 @@ export default function AndexportGenerator() {
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
         
-        // Convert to low-quality JPEG to save space in Firestore
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        // Quality 0.5 for maximum safety with 4 photos
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.5);
         
         const newPhotos = [...productPhotos];
         newPhotos[index] = compressedBase64;
         setProductPhotos(newPhotos);
+        
+        const newUploading = [...isUploading];
+        newUploading[index] = false;
+        setIsUploading(newUploading);
       };
     };
     reader.readAsDataURL(file);
@@ -217,28 +220,37 @@ export default function AndexportGenerator() {
 
   const saveToFirestore = async () => {
     setIsSaving(true);
+    // Timeout safety
+    const timeoutId = setTimeout(() => {
+      if (isSaving) {
+        setIsSaving(false);
+        alert("La conexión con Firebase está tardando demasiado. Revisa tu conexión o intenta con menos fotos.");
+      }
+    }, 15000);
+
     try {
-      // Slugify the ID to avoid issues with spaces or special characters in the URL
       const slugify = (text: string) => text.toString().toLowerCase().trim()
-        .replace(/\s+/g, '-')           // Replace spaces with -
-        .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
-        .replace(/\-\-+/g, '-');        // Replace multiple - with single -
+        .replace(/\s+/g, '-')
+        .replace(/[^\w\-]+/g, '')
+        .replace(/\-\-+/g, '-');
 
       const docId = sheet.codigo ? slugify(sheet.codigo) : `ficha-${Date.now()}`;
       const docRef = doc(db, "fichas", docId);
+      
       await setDoc(docRef, {
         ...sheet,
         productPhotos,
         updatedAt: new Date().toISOString()
       });
       
-      const url = `${window.location.origin}/ver/${encodeURIComponent(docId)}`;
+      console.log("Documento guardado con éxito:", docId);
+      const url = `${window.location.origin}/ver/${docId}`;
       setShareUrl(url);
+      setIsSaving(false); // Force state change before modal
       setShowShareModal(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving to Firestore:", error);
-      alert("Error al guardar en la base de datos de Firebase. Asegúrate de haber activado Firestore en modo de prueba.");
-    } finally {
+      alert("Error al guardar: " + (error.message || "Problema de conexión"));
       setIsSaving(false);
     }
   };
