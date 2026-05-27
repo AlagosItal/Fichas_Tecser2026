@@ -120,15 +120,11 @@ export default function ClientView() {
               </div>
               
               <div className="flex justify-between items-start gap-12">
-                <div className="flex-1 grid grid-cols-[160px_1fr] gap-y-3 text-[13px]">
+                <div className="flex-1 grid grid-cols-[160px_1fr] gap-y-3 text-[13px] content-start">
                   {[
                     ["Código Interno", "codigo"],
                     ["Nombre del Producto", "nombre"],
-                    ["Tipo Presentación", "presentacion"],
-                    ["Adhesivo", "adhesivo"],
-                    ["Textura", "textura"],
-                    ["Espesor (mm)", "espesor"],
-                    ["Unidad Medida", "unidad"]
+                    ["Tipo Presentación", "presentacion"]
                   ].map(([label, key]) => (
                     <React.Fragment key={key}>
                       <span className="font-bold text-slate-400 uppercase text-[9px] flex items-start pt-1 tracking-wider">{label}:</span>
@@ -136,16 +132,24 @@ export default function ClientView() {
                     </React.Fragment>
                   ))}
                 </div>
-                <div 
-                  className="w-[200px] h-[200px] border border-slate-100 bg-white rounded-xl overflow-hidden relative shadow-sm shrink-0 flex items-center justify-center p-2 cursor-zoom-in"
-                  onClick={() => setSelectedImage(sheet.productPhotos[0])}
-                >
-                  {sheet.productPhotos?.[0] ? (
-                    <img src={sheet.productPhotos[0]} alt="Producto" className="max-w-full max-h-full object-contain" />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-center bg-slate-50/50">
-                       <ImageIcon className="w-10 h-10 text-slate-200 mb-2" />
-                       <span className="text-[8px] font-black uppercase text-slate-300 tracking-widest">Sin Foto</span>
+                <div className="flex flex-col gap-4">
+                  <div 
+                    className="w-[200px] h-[200px] border border-slate-100 bg-white rounded-xl overflow-hidden relative shadow-sm shrink-0 flex items-center justify-center p-2 cursor-zoom-in"
+                    onClick={() => setSelectedImage(sheet.productPhotos[0])}
+                  >
+                    {sheet.productPhotos?.[0] ? (
+                      <img src={sheet.productPhotos[0]} alt="Producto" className="max-w-full max-h-full object-contain hover:scale-105 transition-transform" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-center bg-slate-50/50">
+                         <ImageIcon className="w-10 h-10 text-slate-200 mb-2" />
+                         <span className="text-[8px] font-black uppercase text-slate-300 tracking-widest">Sin Foto</span>
+                      </div>
+                    )}
+                  </div>
+                  {sheet.brandLogo && (
+                    <div className="w-[200px] bg-white rounded-xl border border-slate-100 p-4 flex flex-col items-center justify-center gap-2 shadow-sm shrink-0">
+                      <img src={sheet.brandLogo} alt={sheet.brandName || "Marca"} className="max-w-[150px] max-h-[60px] object-contain" />
+                      {sheet.brandName && <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">{sheet.brandName}</span>}
                     </div>
                   )}
                 </div>

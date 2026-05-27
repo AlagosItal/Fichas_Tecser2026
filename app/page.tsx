@@ -36,10 +36,7 @@ interface TechnicalSheet {
   codigo: string;
   nombre: string;
   presentacion: string;
-  adhesivo: string;
-  textura: string;
-  espesor: string;
-  unidad: string;
+  brandName?: string;
   descripcion_tecnica: string;
   caracteristicas: Characteristic[];
   catalogoUrl: string;
@@ -59,10 +56,7 @@ const DEFAULT_SHEET: TechnicalSheet = {
   codigo: "AU9010R",
   nombre: "TEFLÓN POROSO 0.10MM1000MM30M",
   presentacion: "Pliego",
-  adhesivo: "Sin Adhesivo",
-  textura: "Poroso",
-  espesor: "0.1",
-  unidad: "M2",
+  brandName: "",
   descripcion_tecnica: "Pliego de teflón poroso de 0.10mm, sin adhesivo, ideal para aplicaciones que requieren permeabilidad y antiadherencia. Este tejido combina fibra de vidrio con un menor contenido de recubrimiento de PTFE.",
   caracteristicas: [
     { label: "Ancho estándar", value: "1000 mm" },
@@ -81,11 +75,13 @@ const DEFAULT_SHEET: TechnicalSheet = {
   },
   pagina3: {
     recursos: [
-      { titulo: "Video de Aplicación", url: "https://andexport.cl/videos", tipo: "video" },
-      { titulo: "Información Adicional", url: "https://andexport.cl/recursos", tipo: "link" }
+      { titulo: "Catálogo del Proveedor", url: "No Disponible", tipo: "link" },
+      { titulo: "Catálogo Andexport", url: "https://andexport.cl/catalogo", tipo: "link" },
+      { titulo: "Video de Producto o Marca", url: "No Disponible", tipo: "video" },
+      { titulo: "Sitio Web Andexport", url: "https://www.andexport.com", tipo: "link" }
     ],
     observaciones: "Es obligatorio conectar el conductor de tierra para prevenir descargas eléctricas. No exceder el voltaje nominal indicado en la placa técnica. Asegurar un ajuste mecánico firme sobre la boquilla para evitar sobrecalentamientos por falta de contacto.",
-    contacto_comercial: "Comunícate con nosotros\nNuestra central +56 2 2495 5100\nventasweb@andexport.com"
+    contacto_comercial: "Comunícate con nosotros\nNuestra central +56 2 2495 5100\ninfo@andexport.com"
   }
 };
 
@@ -108,6 +104,10 @@ export default function AndexportGenerator() {
   const [specTablePhoto, setSpecTablePhoto] = useState<string | null>(null);
   const [isUploadingSpec, setIsUploadingSpec] = useState(false);
   const specInputRef = useRef<HTMLInputElement>(null);
+
+  const [brandLogo, setBrandLogo] = useState<string | null>(null);
+  const [isUploadingBrand, setIsUploadingBrand] = useState(false);
+  const brandInputRef = useRef<HTMLInputElement>(null);
 
   const [isUploading, setIsUploading] = useState<boolean[]>([false, false, false, false, false, false]);
   const [isSaving, setIsSaving] = useState(false);
@@ -184,6 +184,29 @@ export default function AndexportGenerator() {
     reader.readAsDataURL(file);
   };
 
+  const handleBrandUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingBrand(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const img = new (window as any).Image();
+      img.src = reader.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400;
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setBrandLogo(canvas.toDataURL('image/jpeg', 0.8));
+        setIsUploadingBrand(false);
+      };
+    };
+    reader.readAsDataURL(file);
+  };
+
   const removePhoto = (index: number) => {
     const newPhotos = [...productPhotos];
     newPhotos[index] = null;
@@ -247,19 +270,27 @@ export default function AndexportGenerator() {
         
         REGLAS:
         1. TRADUCE todo al ESPAÑOL TÉCNICO.
-        2. Página 1: Datos básicos y características (mínimo 6).
+        2. Página 1: Datos básicos y características (mínimo 6). Si la data incluye adhesivo, textura, espesor o unidad, inclúyelo detalladamente dentro de la 'descripcion_tecnica'.
         3. Página 2: Tabla comparativa (compara este producto con un estándar similar) y aplicaciones industriales.
-        4. Página 3: Recursos (links a videos y material técnico, SIN repetir el catálogo industrial que ya tiene su propio botón) y sección de Observaciones.
+        4. Página 3: Sección de Observaciones y una lista EXACTA de 4 recursos en el orden especificado.
         5. SOPORTE (Usa estos valores EXACTOS literal): 
-           - Comercial: "Comunícate con nosotros\\nNuestra central +56 2 2495 5100\\nventasweb@andexport.com"
+           - Comercial: "Comunícate con nosotros\\nNuestra central +56 2 2495 5100\\ninfo@andexport.com"
 
         Devuelve JSON con esta estructura exacta:
         {
-          "codigo": "string", "nombre": "string", "presentacion": "string", "adhesivo": "string", "textura": "string", "espesor": "string", "unidad": "string", "descripcion_tecnica": "string",
+          "codigo": "string", "nombre": "string", "presentacion": "string", "brandName": "string", "descripcion_tecnica": "string",
           "caracteristicas": [{"label": "string", "value": "string"}],
           "catalogoUrl": "string",
           "pagina2": { "tabla_comparativa": [{"producto": "string", "propiedad": "string", "valor": "string"}], "aplicaciones_industriales": ["string"], "detalles_proceso": "string" },
-          "pagina3": { "recursos": [{"titulo": "string", "url": "string", "tipo": "video|link"}], "observaciones": "string", "contacto_comercial": "string" }
+          "pagina3": { 
+            "recursos": [
+              {"titulo": "Catálogo del Proveedor", "url": "URL o 'No Disponible'", "tipo": "link"},
+              {"titulo": "Catálogo Andexport", "url": "URL o 'No Disponible'", "tipo": "link"},
+              {"titulo": "Video de Producto o Marca", "url": "URL o 'No Disponible'", "tipo": "video"},
+              {"titulo": "Sitio Web Andexport", "url": "https://www.andexport.com", "tipo": "link"}
+            ], 
+            "observaciones": "string", "contacto_comercial": "string" 
+          }
         }` }
       ];
 
@@ -305,6 +336,7 @@ export default function AndexportGenerator() {
         ...sheet,
         productPhotos,
         specTablePhoto,
+        brandLogo,
         updatedAt: new Date().toISOString()
       });
       
@@ -386,6 +418,38 @@ export default function AndexportGenerator() {
               value={inputCatalogUrl}
               onChange={(e) => setInputCatalogUrl(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
+              <ImageIcon className="w-3.5 h-3.5 text-[#c41e24]" /> Logo y Marca
+            </label>
+            <div className="flex gap-4 items-center">
+              <div 
+                onClick={() => brandInputRef.current?.click()}
+                className="relative w-24 h-24 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-[#c41e24] bg-white transition-all overflow-hidden group shrink-0"
+              >
+                {brandLogo ? (
+                   <>
+                     <img src={brandLogo} alt="Brand" className="w-full h-full object-contain p-2" />
+                     <button onClick={(e) => { e.stopPropagation(); setBrandLogo(null); }} className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100"><X className="w-3 h-3"/></button>
+                   </>
+                ) : (
+                  <div className="flex flex-col items-center gap-1">
+                    {isUploadingBrand ? <Loader2 className="w-4 h-4 animate-spin text-[#c41e24]" /> : <Upload className="w-4 h-4 text-slate-300" />}
+                    <span className="text-[8px] font-bold text-slate-400 text-center px-1">Subir Logo</span>
+                  </div>
+                )}
+                <input type="file" hidden ref={brandInputRef} onChange={handleBrandUpload} accept="image/*" />
+              </div>
+              <input 
+                type="text"
+                placeholder="Nombre de la marca..."
+                className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-4 focus:ring-[#c41e24]/10 focus:border-[#c41e24] outline-none transition-all"
+                value={sheet.brandName || ''}
+                onChange={(e) => setSheet(prev => ({ ...prev, brandName: e.target.value }))}
+              />
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -581,15 +645,11 @@ export default function AndexportGenerator() {
               </div>
               
               <div className="flex justify-between items-start gap-12">
-                <div className="flex-1 grid grid-cols-[160px_1fr] gap-y-4 text-[13px]">
+                <div className="flex-1 grid grid-cols-[160px_1fr] gap-y-4 text-[13px] content-start">
                   {[
                     ["Código Interno", "codigo"],
                     ["Nombre del Producto", "nombre"],
-                    ["Tipo Presentación", "presentacion"],
-                    ["Adhesivo", "adhesivo"],
-                    ["Textura", "textura"],
-                    ["Espesor (mm)", "espesor"],
-                    ["Unidad Medida", "unidad"]
+                    ["Tipo Presentación", "presentacion"]
                   ].map(([label, key]) => (
                     <React.Fragment key={key}>
                       <span className="font-bold text-slate-400 uppercase text-[9px] flex items-start pt-1 tracking-wider">{label}:</span>
@@ -612,19 +672,27 @@ export default function AndexportGenerator() {
                     </React.Fragment>
                   ))}
                 </div>
-                <div className="w-[200px] h-[200px] border border-slate-100 bg-white rounded-xl overflow-hidden relative shadow-sm shrink-0 flex items-center justify-center p-2 cursor-zoom-in"
-                  onClick={() => setSelectedImage(productPhotos[0])}
-                >
-                  {productPhotos[0] ? (
-                    <img 
-                      src={productPhotos[0]} 
-                      alt="Producto" 
-                      className="max-w-full max-h-full object-contain hover:scale-105 transition-transform" 
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-center bg-slate-50/50">
-                       <ImageIcon className="w-10 h-10 text-slate-200 mb-2" />
-                       <span className="text-[8px] font-black uppercase text-slate-300 tracking-widest">Foto Principal</span>
+                <div className="flex flex-col gap-4">
+                  <div className="w-[200px] h-[200px] border border-slate-100 bg-white rounded-xl overflow-hidden relative shadow-sm shrink-0 flex items-center justify-center p-2 cursor-zoom-in"
+                    onClick={() => setSelectedImage(productPhotos[0])}
+                  >
+                    {productPhotos[0] ? (
+                      <img 
+                        src={productPhotos[0]} 
+                        alt="Producto" 
+                        className="max-w-full max-h-full object-contain hover:scale-105 transition-transform" 
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-center bg-slate-50/50">
+                         <ImageIcon className="w-10 h-10 text-slate-200 mb-2" />
+                         <span className="text-[8px] font-black uppercase text-slate-300 tracking-widest">Foto Principal</span>
+                      </div>
+                    )}
+                  </div>
+                  {brandLogo && (
+                    <div className="w-[200px] bg-white rounded-xl border border-slate-100 p-4 flex flex-col items-center justify-center gap-2 shadow-sm shrink-0">
+                      <img src={brandLogo} alt={sheet.brandName || "Marca"} className="max-w-[150px] max-h-[60px] object-contain" />
+                      {sheet.brandName && <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">{sheet.brandName}</span>}
                     </div>
                   )}
                 </div>
