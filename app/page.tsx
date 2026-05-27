@@ -427,6 +427,19 @@ export default function AndexportGenerator() {
 
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
+              <Type className="w-3.5 h-3.5 text-[#c41e24]" /> Código Interno
+            </label>
+            <input
+              type="text"
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-mono font-bold uppercase focus:ring-4 focus:ring-[#c41e24]/10 focus:border-[#c41e24] outline-none transition-all"
+              placeholder="Ej: ULTRAMAX796"
+              value={sheet.codigo}
+              onChange={(e) => setSheet(prev => ({ ...prev, codigo: e.target.value.toUpperCase() }))}
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
               <ImageIcon className="w-3.5 h-3.5 text-[#c41e24]" /> Logo y Marca
             </label>
             <div className="flex gap-4 items-center">
