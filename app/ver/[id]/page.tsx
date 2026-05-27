@@ -199,12 +199,12 @@ export default function ClientView() {
                 <h2 className="bg-[#c41e24] text-white py-2 px-6 font-black text-[10px] uppercase tracking-[0.2em]">Tabla Comparativa de Grados</h2>
                 <div className="h-[2px] flex-1 bg-slate-100"></div>
               </div>
-              <table className="w-full text-[11px] text-left border-collapse border border-slate-200">
+              <table className="w-full text-[11px] text-left border-collapse border border-slate-200 table-fixed">
                 <thead className="bg-slate-800 text-white">
                   <tr>
-                    <th className="p-2 border border-slate-700">Producto / Variante</th>
-                    <th className="p-2 border border-slate-700">Propiedad Crítica</th>
-                    <th className="p-2 border border-slate-700">Valor Comparativo</th>
+                    <th className="p-2 border border-slate-700 w-1/3 break-words">Producto / Variante</th>
+                    <th className="p-2 border border-slate-700 w-1/3 break-words">Propiedad Crítica</th>
+                    <th className="p-2 border border-slate-700 w-1/3 break-words">Valor Comparativo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -311,16 +311,12 @@ export default function ClientView() {
                         <div className="text-sm text-slate-700 leading-relaxed font-bold italic whitespace-pre-wrap">
                           {sheet.pagina3.observaciones}
                         </div>
-                       <div className="pt-6 border-t border-red-200 grid grid-cols-2 gap-8">
-                          <div>
-                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Soporte Comercial:</span>
-                             <span className="text-xs font-black text-slate-700 block whitespace-pre-line">{sheet.pagina3.contacto_comercial}</span>
-                          </div>
-                          <div>
-                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Soporte Técnico:</span>
-                             <span className="text-xs font-black text-[#c41e24] block whitespace-pre-line">{sheet.pagina3.contacto_tecnico}</span>
-                          </div>
-                       </div>
+                        <div className="pt-6 border-t border-red-200">
+                           <div>
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Soporte Comercial:</span>
+                              <span className="text-xs font-black text-slate-700 block whitespace-pre-line">{sheet.pagina3.contacto_comercial}</span>
+                           </div>
+                        </div>
                     </div>
                  </div>
               </div>
@@ -337,7 +333,7 @@ export default function ClientView() {
         </div>
 
         {/* --- EXTRA PAGES FOR PHOTOS --- */}
-        {[1, 2, 3].map((idx) => {
+        {[1, 2, 3, 4, 5].map((idx) => {
           const photo = sheet.productPhotos?.[idx];
           if (!photo) return null;
           return (

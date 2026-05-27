@@ -20,8 +20,8 @@ import { GoogleGenAI, Type as GeminiType } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { Share2, ExternalLink, Copy } from 'lucide-react';
+import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { Share2, ExternalLink, Copy, List as ListIcon } from 'lucide-react';
 
 // --- Constants & Types ---
 
@@ -52,7 +52,6 @@ interface TechnicalSheet {
     recursos: { titulo: string; url: string; tipo: 'video' | 'link' }[];
     observaciones: string;
     contacto_comercial: string;
-    contacto_tecnico: string;
   };
 }
 
@@ -86,8 +85,7 @@ const DEFAULT_SHEET: TechnicalSheet = {
       { titulo: "Información Adicional", url: "https://andexport.cl/recursos", tipo: "link" }
     ],
     observaciones: "Es obligatorio conectar el conductor de tierra para prevenir descargas eléctricas. No exceder el voltaje nominal indicado en la placa técnica. Asegurar un ajuste mecánico firme sobre la boquilla para evitar sobrecalentamientos por falta de contacto.",
-    contacto_comercial: "Comunícate con nosotros\nNuestra central +56 2 2495 5100\nventasweb@andexport.com",
-    contacto_tecnico: "Yoanna Navarro - Asistente Soporte Técnico\n56 2 2495 5156 / +569 4141 6796"
+    contacto_comercial: "Comunícate con nosotros\nNuestra central +56 2 2495 5100\nventasweb@andexport.com"
   }
 };
 
@@ -99,22 +97,42 @@ export default function AndexportGenerator() {
   const [inputText, setInputText] = useState("");
   const [inputUrl, setInputUrl] = useState("");
   const [inputCatalogUrl, setInputCatalogUrl] = useState("");
-  const [productPhotos, setProductPhotos] = useState<(string | null)[]>([null, null, null, null]);
+  const [productPhotos, setProductPhotos] = useState<(string | null)[]>([null, null, null, null, null, null]);
   const [files, setFiles] = useState<{ id: string; name: string; type: string; base64: string }[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const photoInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const photoInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
   const genAI = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || "" });
 
   const [specTablePhoto, setSpecTablePhoto] = useState<string | null>(null);
   const [isUploadingSpec, setIsUploadingSpec] = useState(false);
   const specInputRef = useRef<HTMLInputElement>(null);
 
-  const [isUploading, setIsUploading] = useState<boolean[]>([false, false, false, false]);
+  const [isUploading, setIsUploading] = useState<boolean[]>([false, false, false, false, false, false]);
   const [isSaving, setIsSaving] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  
+  const [showRepoModal, setShowRepoModal] = useState(false);
+  const [fichasRepo, setFichasRepo] = useState<any[]>([]);
+  const [loadingRepo, setLoadingRepo] = useState(false);
+
+  const loadRepository = async () => {
+    setLoadingRepo(true);
+    setShowRepoModal(true);
+    try {
+      const q = collection(db, "fichas");
+      const querySnapshot = await getDocs(q);
+      const docs = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setFichasRepo(docs.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+    } catch (err) {
+      console.error(err);
+      alert("Error al cargar repositorio");
+    } finally {
+      setLoadingRepo(false);
+    }
+  };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
@@ -217,7 +235,6 @@ export default function AndexportGenerator() {
         4. Página 3: Recursos (links a videos y material técnico, SIN repetir el catálogo industrial que ya tiene su propio botón) y sección de Observaciones.
         5. SOPORTE (Usa estos valores EXACTOS literal): 
            - Comercial: "Comunícate con nosotros\\nNuestra central +56 2 2495 5100\\nventasweb@andexport.com"
-           - Técnico: "Yoanna Navarro - Asistente Soporte Técnico\\n56 2 2495 5156 / +569 4141 6796"
 
         Devuelve JSON con esta estructura exacta:
         {
@@ -225,7 +242,7 @@ export default function AndexportGenerator() {
           "caracteristicas": [{"label": "string", "value": "string"}],
           "catalogoUrl": "string",
           "pagina2": { "tabla_comparativa": [{"producto": "string", "propiedad": "string", "valor": "string"}], "aplicaciones_industriales": ["string"], "detalles_proceso": "string" },
-          "pagina3": { "recursos": [{"titulo": "string", "url": "string", "tipo": "video|link"}], "observaciones": "string", "contacto_comercial": "string", "contacto_tecnico": "string" }
+          "pagina3": { "recursos": [{"titulo": "string", "url": "string", "tipo": "video|link"}], "observaciones": "string", "contacto_comercial": "string" }
         }` }
       ];
 
@@ -359,7 +376,7 @@ export default function AndexportGenerator() {
               <Camera className="w-3.5 h-3.5 text-[#c41e24]" /> Fotografías del Producto
             </label>
             <div className="grid grid-cols-2 gap-4">
-              {[0, 1, 2, 3].map((idx) => (
+              {[0, 1, 2, 3, 4, 5].map((idx) => (
                 <div key={idx} className="space-y-2">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">
                     {idx === 0 ? "Foto Principal (Hoja 1)" : `Foto Galería #${idx + 1}`}
@@ -506,6 +523,14 @@ export default function AndexportGenerator() {
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
             {isSaving ? "Publicando Ficha..." : "Guardar y Compartir"}
           </button>
+          
+          <button 
+            onClick={loadRepository}
+            className={`w-full py-4 bg-slate-200 text-slate-700 rounded-2xl text-xs font-black flex items-center justify-center gap-3 hover:bg-slate-300 transition-all active:scale-95 shadow-sm uppercase tracking-widest`}
+          >
+            <ListIcon className="w-4 h-4" />
+            Repositorio de Fichas
+          </button>
         </div>
       </aside>
 
@@ -597,6 +622,16 @@ export default function AndexportGenerator() {
               <textarea 
                 className="w-full min-h-[120px] border-none focus:ring-0 outline-none text-[13px] text-slate-700 leading-relaxed overflow-hidden bg-white p-4 rounded-xl border border-slate-50"
                 style={{ resize: 'none' }}
+                onInput={(e) => {
+                  e.currentTarget.style.height = 'auto';
+                  e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                }}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = 'auto';
+                    el.style.height = el.scrollHeight + 'px';
+                  }
+                }}
                 value={sheet.descripcion_tecnica}
                 onChange={(e) => setSheet(prev => ({ ...prev, descripcion_tecnica: e.target.value }))}
               />
@@ -671,12 +706,12 @@ export default function AndexportGenerator() {
                 <h2 className="bg-[#c41e24] text-white py-2 px-6 font-black text-[10px] uppercase tracking-[0.2em]">Tabla Comparativa de Grados</h2>
                 <div className="h-[2px] flex-1 bg-slate-100"></div>
               </div>
-              <table className="w-full text-[11px] text-left border-collapse border border-slate-200">
+              <table className="w-full text-[11px] text-left border-collapse border border-slate-200 table-fixed">
                 <thead className="bg-slate-800 text-white">
                   <tr>
-                    <th className="p-2 border border-slate-700">Producto / Variante</th>
-                    <th className="p-2 border border-slate-700">Propiedad Crítica</th>
-                    <th className="p-2 border border-slate-700">Valor Comparativo</th>
+                    <th className="p-2 border border-slate-700 w-1/3 break-words">Producto / Variante</th>
+                    <th className="p-2 border border-slate-700 w-1/3 break-words">Propiedad Crítica</th>
+                    <th className="p-2 border border-slate-700 w-1/3 break-words">Valor Comparativo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -827,16 +862,12 @@ export default function AndexportGenerator() {
                              pagina3: { ...prev.pagina3, observaciones: e.target.value } 
                            }))}
                         />
-                       <div className="pt-6 border-t border-red-200 grid grid-cols-2 gap-8">
-                          <div>
-                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Soporte Comercial:</span>
-                             <span className="text-xs font-black text-slate-700 block whitespace-pre-line">{sheet.pagina3.contacto_comercial}</span>
-                          </div>
-                          <div>
-                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Soporte Técnico:</span>
-                             <span className="text-xs font-black text-[#c41e24] block whitespace-pre-line">{sheet.pagina3.contacto_tecnico}</span>
-                          </div>
-                       </div>
+                        <div className="pt-6 border-t border-red-200">
+                           <div>
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Soporte Comercial:</span>
+                              <span className="text-xs font-black text-slate-700 block whitespace-pre-line">{sheet.pagina3.contacto_comercial}</span>
+                           </div>
+                        </div>
                     </div>
                  </div>
               </div>
@@ -860,7 +891,7 @@ export default function AndexportGenerator() {
         </div>
 
         {/* --- EXTRA PAGES FOR PHOTOS --- */}
-        {[1, 2, 3].map((idx) => {
+        {[1, 2, 3, 4, 5].map((idx) => {
           const photo = productPhotos[idx];
           if (!photo) return null;
           return (
@@ -999,6 +1030,86 @@ export default function AndexportGenerator() {
                 >
                   Cerrar
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showRepoModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:p-12 no-print"
+            onClick={() => setShowRepoModal(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#c41e24] rounded-xl flex items-center justify-center shadow-inner">
+                    <ListIcon className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">Repositorio Digital</h2>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{fichasRepo.length} Fichas Registradas</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowRepoModal(false)}
+                  className="p-2 hover:bg-slate-200 rounded-xl transition-all text-slate-500"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 bg-slate-50/20">
+                {loadingRepo ? (
+                  <div className="flex flex-col items-center justify-center h-40 gap-3">
+                    <Loader2 className="w-8 h-8 text-[#c41e24] animate-spin" />
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Cargando repositorio...</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {fichasRepo.map((ficha) => {
+                      const url = `${window.location.origin}/ver/${ficha.id}`;
+                      return (
+                        <div key={ficha.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between h-full">
+                          <div className="mb-4">
+                            <span className="text-[9px] font-black px-2 py-1 bg-red-50 text-[#c41e24] rounded uppercase tracking-wider mb-2 inline-block border border-red-100">{ficha.codigo}</span>
+                            <h3 className="font-bold text-slate-800 text-sm leading-tight line-clamp-2">{ficha.nombre}</h3>
+                            <p className="text-[10px] text-slate-400 font-medium mt-1 truncate">{new Date(ficha.updatedAt).toLocaleDateString()}</p>
+                          </div>
+                          <div className="flex gap-2 mt-auto">
+                            <a 
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all uppercase tracking-wider"
+                            >
+                              <ExternalLink className="w-3 h-3" /> Ver
+                            </a>
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(url);
+                                alert("Link copiado: " + url);
+                              }}
+                              className="px-4 py-2 bg-slate-800 hover:bg-black text-white text-[10px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all uppercase tracking-wider shadow-sm"
+                            >
+                              <Copy className="w-3 h-3" /> Copiar
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
