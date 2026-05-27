@@ -211,6 +211,10 @@ export default function AndexportGenerator() {
     const newPhotos = [...productPhotos];
     newPhotos[index] = null;
     setProductPhotos(newPhotos);
+    // Reset the file input so the same file can be re-selected
+    if (photoInputRefs[index]?.current) {
+      photoInputRefs[index].current!.value = '';
+    }
   };
 
   const handleSpecUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -270,10 +274,11 @@ export default function AndexportGenerator() {
         
         REGLAS:
         1. TRADUCE todo al ESPAÑOL TÉCNICO.
-        2. Página 1: Datos básicos y características (mínimo 6). Si la data incluye adhesivo, textura, espesor o unidad, inclúyelo detalladamente dentro de la 'descripcion_tecnica'.
-        3. Página 2: Tabla comparativa (compara este producto con un estándar similar) y aplicaciones industriales.
-        4. Página 3: Sección de Observaciones y una lista EXACTA de 4 recursos en el orden especificado.
-        5. SOPORTE (Usa estos valores EXACTOS literal): 
+        2. El campo "codigo" DEBE extraerse de la tabla de especificaciones adjunta (imagen de tabla). Si hay múltiples códigos, lista el primero o el que mejor corresponda al producto. Si no hay tabla, usa el código del texto.
+        3. Página 1: Datos básicos y características (mínimo 6). Si la data incluye adhesivo, textura, espesor o unidad, inclúyelo detalladamente dentro de la 'descripcion_tecnica'.
+        4. Página 2: Tabla comparativa (compara este producto con un estándar similar) y aplicaciones industriales.
+        5. Página 3: Sección de Observaciones y una lista EXACTA de 4 recursos en el orden especificado.
+        6. SOPORTE (Usa estos valores EXACTOS literal): 
            - Comercial: "Comunícate con nosotros\\nNuestra central +56 2 2495 5100\\ninfo@andexport.com"
 
         Devuelve JSON con esta estructura exacta:
