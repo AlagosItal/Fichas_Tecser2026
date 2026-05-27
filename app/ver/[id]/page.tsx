@@ -239,27 +239,7 @@ export default function ClientView() {
               </div>
             </section>
 
-            <div className="flex-1 pt-10">
-               <div className="flex items-center gap-4 mb-8">
-                <h2 className="bg-slate-100 text-slate-400 py-2 px-6 font-black text-[9px] uppercase tracking-[0.4em] rounded-full">Galería Complementaria</h2>
-                <div className="h-[1px] flex-1 bg-slate-50"></div>
-              </div>
-              <div className="grid grid-cols-3 gap-6 h-[180px]">
-                 {[1, 2, 3].map(idx => (
-                   <div 
-                    key={idx} 
-                    className="bg-slate-50/50 rounded-3xl border-2 border-slate-50 relative overflow-hidden flex items-center justify-center cursor-zoom-in hover:border-[#c41e24] transition-all"
-                    onClick={() => setSelectedImage(sheet.productPhotos[idx])}
-                   >
-                     {sheet.productPhotos?.[idx] ? (
-                       <img src={sheet.productPhotos[idx]} alt={`Img${idx+1}`} className="w-full h-full object-cover" />
-                     ) : (
-                       <ImageIcon className="w-8 h-8 text-slate-200" />
-                     )}
-                   </div>
-                 ))}
-              </div>
-            </div>
+            <div className="flex-1"></div>
 
             <footer className="mt-10 pt-8 border-t border-slate-100 flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-widest">
               <span>Aeropuerto Norte 9627. Parque de Negocios ENEA. Pudahuel. Santiago - Chile.</span>
@@ -355,6 +335,54 @@ export default function ClientView() {
             </footer>
           </div>
         </div>
+
+        {/* --- EXTRA PAGES FOR PHOTOS --- */}
+        {[1, 2, 3].map((idx) => {
+          const photo = sheet.productPhotos?.[idx];
+          if (!photo) return null;
+          return (
+            <div key={`photo-page-${idx}`} className="a4-sheet bg-white shadow-2xl flex flex-col font-sans ring-1 ring-slate-200" style={{ pageBreakBefore: 'always' }}>
+              <div className="p-[50px] flex-1 flex flex-col h-full">
+                <header className="mb-14 border-l-8 border-[#c41e24] pl-6 py-2">
+                  <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Galería Complementaria</h1>
+                  <p className="text-xs font-medium text-slate-400">Detalle visual del producto y aplicaciones ({idx})</p>
+                </header>
+                <div 
+                  className="flex-1 flex items-center justify-center p-4 border-2 border-dashed border-slate-100 rounded-3xl cursor-zoom-in hover:border-[#c41e24] transition-all bg-slate-50/30"
+                  onClick={() => setSelectedImage(photo)}
+                >
+                  <img src={photo} alt={`Detalle ${idx}`} className="max-w-full max-h-full object-contain rounded-xl" />
+                </div>
+                <footer className="mt-10 pt-8 border-t border-slate-100 flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                  <span>Aeropuerto Norte 9627. Parque de Negocios ENEA. Pudahuel. Santiago - Chile.</span>
+                  <span>Andexport</span>
+                </footer>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* --- EXTRA PAGE FOR SPEC TABLE --- */}
+        {sheet.specTablePhoto && (
+          <div className="a4-sheet bg-white shadow-2xl flex flex-col font-sans ring-1 ring-slate-200" style={{ pageBreakBefore: 'always' }}>
+            <div className="p-[50px] flex-1 flex flex-col h-full">
+              <header className="mb-14 border-l-8 border-[#c41e24] pl-6 py-2">
+                <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Tabla de Especificaciones</h1>
+                <p className="text-xs font-medium text-slate-400">Modelos y características extendidas</p>
+              </header>
+              <div 
+                className="flex-1 flex items-center justify-center p-4 border-2 border-dashed border-slate-100 rounded-3xl cursor-zoom-in hover:border-[#c41e24] transition-all bg-slate-50/30"
+                onClick={() => setSelectedImage(sheet.specTablePhoto)}
+              >
+                <img src={sheet.specTablePhoto} alt="Tabla de Especificaciones" className="max-w-full max-h-full object-contain rounded-xl" />
+              </div>
+              <footer className="mt-10 pt-8 border-t border-slate-100 flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                <span>Aeropuerto Norte 9627. Parque de Negocios ENEA. Pudahuel. Santiago - Chile.</span>
+                <span>Andexport</span>
+              </footer>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* --- IMAGE MODAL --- */}

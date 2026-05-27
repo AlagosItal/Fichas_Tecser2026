@@ -107,6 +107,10 @@ export default function AndexportGenerator() {
   const photoInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
   const genAI = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || "" });
 
+  const [specTablePhoto, setSpecTablePhoto] = useState<string | null>(null);
+  const [isUploadingSpec, setIsUploadingSpec] = useState(false);
+  const specInputRef = useRef<HTMLInputElement>(null);
+
   const [isUploading, setIsUploading] = useState<boolean[]>([false, false, false, false]);
   const [isSaving, setIsSaving] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -149,6 +153,32 @@ export default function AndexportGenerator() {
     const newPhotos = [...productPhotos];
     newPhotos[index] = null;
     setProductPhotos(newPhotos);
+  };
+
+  const handleSpecUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingSpec(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const img = new (window as any).Image();
+      img.src = reader.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+        setSpecTablePhoto(compressedBase64);
+        setIsUploadingSpec(false);
+      };
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,6 +270,7 @@ export default function AndexportGenerator() {
       await setDoc(docRef, {
         ...sheet,
         productPhotos,
+        specTablePhoto,
         updatedAt: new Date().toISOString()
       });
       
@@ -360,6 +391,37 @@ export default function AndexportGenerator() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
+              <FileText className="w-3.5 h-3.5 text-[#c41e24]" /> Tabla de Especificaciones
+            </label>
+            <div 
+              onClick={() => specInputRef.current?.click()}
+              className="relative border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-[#c41e24] hover:bg-red-50/10 transition-all overflow-hidden group"
+            >
+              {specTablePhoto ? (
+                <>
+                  <img src={specTablePhoto} alt="Tabla Spec" className="max-h-32 object-contain" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    {isUploadingSpec ? <Loader2 className="text-white w-6 h-6 animate-spin" /> : <Upload className="text-white w-6 h-6" />}
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setSpecTablePhoto(null); }}
+                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600 shadow-lg z-20"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-1 text-center">
+                  {isUploadingSpec ? <Loader2 className="w-6 h-6 text-[#c41e24] animate-spin" /> : <Upload className="w-6 h-6 text-slate-300 group-hover:text-[#c41e24]" />}
+                  <span className="text-[10px] font-bold text-slate-500 mt-1">{isUploadingSpec ? "Procesando..." : "Sube una imagen de la tabla (JPG/PNG)"}</span>
+                </div>
+              )}
+              <input type="file" hidden ref={specInputRef} onChange={handleSpecUpload} accept="image/*" />
             </div>
           </div>
 
@@ -656,31 +718,7 @@ export default function AndexportGenerator() {
               </div>
             </section>
 
-            <div className="flex-1 pt-10">
-               <div className="flex items-center gap-4 mb-8">
-                <h2 className="bg-slate-100 text-slate-400 py-2 px-6 font-black text-[9px] uppercase tracking-[0.4em] rounded-full">Galería Complementaria</h2>
-                <div className="h-[1px] flex-1 bg-slate-50"></div>
-              </div>
-               <div className="grid grid-cols-3 gap-6 h-[180px]">
-                 {[1, 2, 3].map(idx => (
-                   <div 
-                    key={idx} 
-                    className="bg-slate-50/50 rounded-3xl border-2 border-slate-50 relative overflow-hidden flex items-center justify-center group/img cursor-zoom-in"
-                    onClick={() => setSelectedImage(productPhotos[idx])}
-                   >
-                     {productPhotos[idx] ? (
-                       <img 
-                        src={productPhotos[idx]!} 
-                        alt={`Img${idx+1}`} 
-                        className="w-full h-full object-cover group-hover/img:scale-110 transition-transform" 
-                       />
-                     ) : (
-                       <ImageIcon className="w-8 h-8 text-slate-200" />
-                     )}
-                   </div>
-                 ))}
-              </div>
-            </div>
+            <div className="flex-1"></div>
 
             <footer className="mt-10 pt-8 border-t border-slate-100 flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-widest">
               <span>Aeropuerto Norte 9627. Parque de Negocios ENEA. Pudahuel. Santiago - Chile.</span>
@@ -799,6 +837,54 @@ export default function AndexportGenerator() {
             </footer>
           </div>
         </div>
+
+        {/* --- EXTRA PAGES FOR PHOTOS --- */}
+        {[1, 2, 3].map((idx) => {
+          const photo = productPhotos[idx];
+          if (!photo) return null;
+          return (
+            <div key={`photo-page-${idx}`} className="a4-sheet bg-white shadow-2xl flex flex-col font-sans ring-1 ring-slate-200" style={{ pageBreakBefore: 'always' }}>
+              <div className="p-[50px] flex-1 flex flex-col h-full">
+                <header className="mb-14 border-l-8 border-[#c41e24] pl-6 py-2">
+                  <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Galería Fotográfica</h1>
+                  <p className="text-xs font-medium text-slate-400">Detalle visual del producto y aplicaciones ({idx})</p>
+                </header>
+                <div 
+                  className="flex-1 flex items-center justify-center p-4 border-2 border-dashed border-slate-100 rounded-3xl cursor-zoom-in hover:border-[#c41e24] transition-all bg-slate-50/30"
+                  onClick={() => setSelectedImage(photo)}
+                >
+                  <img src={photo} alt={`Detalle ${idx}`} className="max-w-full max-h-full object-contain rounded-xl" />
+                </div>
+                <footer className="mt-10 pt-8 border-t border-slate-100 flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                  <span>Aeropuerto Norte 9627. Parque de Negocios ENEA. Pudahuel. Santiago - Chile.</span>
+                  <span>Andexport</span>
+                </footer>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* --- EXTRA PAGE FOR SPEC TABLE --- */}
+        {specTablePhoto && (
+          <div className="a4-sheet bg-white shadow-2xl flex flex-col font-sans ring-1 ring-slate-200" style={{ pageBreakBefore: 'always' }}>
+            <div className="p-[50px] flex-1 flex flex-col h-full">
+              <header className="mb-14 border-l-8 border-[#c41e24] pl-6 py-2">
+                <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Tabla de Especificaciones</h1>
+                <p className="text-xs font-medium text-slate-400">Modelos y características extendidas</p>
+              </header>
+              <div 
+                className="flex-1 flex items-center justify-center p-4 border-2 border-dashed border-slate-100 rounded-3xl cursor-zoom-in hover:border-[#c41e24] transition-all bg-slate-50/30"
+                onClick={() => setSelectedImage(specTablePhoto)}
+              >
+                <img src={specTablePhoto} alt="Tabla de Especificaciones" className="max-w-full max-h-full object-contain rounded-xl" />
+              </div>
+              <footer className="mt-10 pt-8 border-t border-slate-100 flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                <span>Aeropuerto Norte 9627. Parque de Negocios ENEA. Pudahuel. Santiago - Chile.</span>
+                <span>Andexport</span>
+              </footer>
+            </div>
+          </div>
+        )}
       </main>
       <AnimatePresence>
         {selectedImage && (
