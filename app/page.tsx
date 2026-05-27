@@ -682,14 +682,35 @@ export default function AndexportGenerator() {
                 <tbody>
                   {sheet.pagina2.tabla_comparativa.map((row, i) => (
                     <tr key={i} className="even:bg-slate-50">
-                      <td className="p-2 border border-slate-200 font-bold text-slate-700 uppercase">
-                        <input className="w-full bg-transparent outline-none" value={row.producto} onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].producto=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} />
+                      <td className="p-2 border border-slate-200 font-bold text-slate-700 uppercase align-top">
+                        <textarea 
+                          className="w-full bg-transparent outline-none resize-none overflow-hidden" 
+                          rows={1}
+                          onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                          ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                          value={row.producto} 
+                          onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].producto=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} 
+                        />
                       </td>
-                      <td className="p-2 border border-slate-200 text-slate-500 uppercase">
-                        <input className="w-full bg-transparent outline-none" value={row.propiedad} onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].propiedad=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} />
+                      <td className="p-2 border border-slate-200 text-slate-500 uppercase align-top">
+                        <textarea 
+                          className="w-full bg-transparent outline-none resize-none overflow-hidden" 
+                          rows={1}
+                          onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                          ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                          value={row.propiedad} 
+                          onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].propiedad=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} 
+                        />
                       </td>
-                      <td className="p-2 border border-slate-200 font-mono text-[#c41e24] font-bold">
-                        <input className="w-full bg-transparent outline-none" value={row.valor} onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].valor=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} />
+                      <td className="p-2 border border-slate-200 font-mono text-[#c41e24] font-bold align-top">
+                        <textarea 
+                          className="w-full bg-transparent outline-none resize-none overflow-hidden" 
+                          rows={1}
+                          onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                          ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                          value={row.valor} 
+                          onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].valor=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} 
+                        />
                       </td>
                     </tr>
                   ))}

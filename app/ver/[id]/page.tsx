@@ -210,9 +210,9 @@ export default function ClientView() {
                 <tbody>
                   {sheet.pagina2.tabla_comparativa.map((row: any, i: number) => (
                     <tr key={i} className="even:bg-slate-50">
-                      <td className="p-2 border border-slate-200 font-bold text-slate-700 uppercase">{row.producto}</td>
-                      <td className="p-2 border border-slate-200 text-slate-500 uppercase">{row.propiedad}</td>
-                      <td className="p-2 border border-slate-200 font-mono text-[#c41e24] font-bold">{row.valor}</td>
+                      <td className="p-2 border border-slate-200 font-bold text-slate-700 uppercase whitespace-pre-wrap break-words align-top">{row.producto}</td>
+                      <td className="p-2 border border-slate-200 text-slate-500 uppercase whitespace-pre-wrap break-words align-top">{row.propiedad}</td>
+                      <td className="p-2 border border-slate-200 font-mono text-[#c41e24] font-bold whitespace-pre-wrap break-words align-top">{row.valor}</td>
                     </tr>
                   ))}
                 </tbody>
