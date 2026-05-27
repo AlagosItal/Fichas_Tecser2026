@@ -42,6 +42,12 @@ export default function ClientView() {
     loadFicha();
   }, [id]);
 
+  useEffect(() => {
+    if (sheet?.nombre) {
+      document.title = `Ficha Técnica - ${sheet.nombre}`;
+    }
+  }, [sheet]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">

@@ -20,8 +20,8 @@ import { GoogleGenAI, Type as GeminiType } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
-import { Share2, ExternalLink, Copy, List as ListIcon } from 'lucide-react';
+import { doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { Share2, ExternalLink, Copy, List as ListIcon, Trash2 as TrashIcon } from 'lucide-react';
 
 // --- Constants & Types ---
 
@@ -133,6 +133,23 @@ export default function AndexportGenerator() {
       setLoadingRepo(false);
     }
   };
+
+  const deleteFicha = async (id: string) => {
+    if (!window.confirm("¿Estás seguro de que deseas eliminar esta ficha? Esta acción no se puede deshacer.")) return;
+    try {
+      await deleteDoc(doc(db, "fichas", id));
+      setFichasRepo(prev => prev.filter(f => f.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Error al eliminar la ficha");
+    }
+  };
+
+  useEffect(() => {
+    if (sheet?.nombre) {
+      document.title = `Ficha Técnica - ${sheet.nombre}`;
+    }
+  }, [sheet?.nombre]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
@@ -1103,6 +1120,16 @@ export default function AndexportGenerator() {
                               className="px-4 py-2 bg-slate-800 hover:bg-black text-white text-[10px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all uppercase tracking-wider shadow-sm"
                             >
                               <Copy className="w-3 h-3" /> Copiar
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteFicha(ficha.id);
+                              }}
+                              className="px-3 py-2 bg-red-50 hover:bg-red-100 text-[#c41e24] text-[10px] font-bold rounded-xl flex items-center justify-center transition-all shadow-sm"
+                              title="Eliminar"
+                            >
+                              <TrashIcon className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
