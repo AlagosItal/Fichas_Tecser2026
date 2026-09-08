@@ -1,0 +1,148 @@
+/* ============================================================
+   PRINT STYLESHEET — Fichas Técnicas Andexport
+   Cargado SOLO en modo impresión mediante media="print" en layout.tsx
+   NO afecta el diseño de la aplicación en pantalla.
+
+   ESTRATEGIA:
+   - .a4-sheet = contenedor rígido de 297mm (una página exacta)
+   - .a4-sheet > div = contenido interior; se escala con JS zoom antes de imprimir
+   - overflow: hidden en .a4-sheet actúa como red de seguridad final
+   ============================================================ */
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+
+  /* ── Reset global ── */
+  html,
+  body {
+    width: 210mm !important;
+    height: auto !important;
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    overflow: visible !important;
+  }
+
+  /* ── Ocultar sidebar y UI ── */
+  aside,
+  .no-print,
+  [class*="no-print"] {
+    display: none !important;
+  }
+
+  /* ── Contenedor principal (el <main>) ── */
+  .pdf-container {
+    display: block !important;
+    width: 210mm !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-width: 210mm !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+    flex: none !important;
+  }
+
+  /* ── Cada hoja A4 (contenedor rígido) ── */
+  .a4-sheet {
+    display: block !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 0 !important;
+    max-height: 297mm !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;          /* Red de seguridad: nunca sangrar a la página siguiente */
+    page-break-before: always !important;
+    page-break-after: always !important;
+    page-break-inside: avoid !important;
+    break-before: page !important;
+    break-after: page !important;
+    break-inside: avoid !important;
+    background: white !important;
+    box-shadow: none !important;
+  }
+
+  /* Primera hoja: no forzar salto de página antes */
+  .a4-sheet:first-child {
+    page-break-before: auto !important;
+    break-before: auto !important;
+  }
+
+  /* ── Div interno: el JS aplica zoom aquí antes de imprimir ──
+     overflow VISIBLE aquí para que el zoom JS pueda trabajar correctamente.
+     El .a4-sheet padre actúa como clip final. */
+  .a4-sheet > div {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: 297mm !important;
+    max-height: 297mm !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;         /* Visible: zoom JS controla el ajuste */
+    transform-origin: top left !important;
+  }
+
+  /* ── Imágenes ── */
+  .a4-sheet img {
+    max-width: 100% !important;
+    display: block !important;
+    object-fit: contain !important;
+  }
+
+  /* Contenedor de imagen de página completa (galería / spec table) */
+  .a4-sheet .flex-1 {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .a4-sheet .flex-1 img {
+    width: auto !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+  }
+
+  /* ── Colores e imágenes exactas ── */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Tablas ── */
+  table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+  }
+
+  /* ── Inputs y textareas: se muestran como texto plano ── */
+  textarea,
+  input[type="text"],
+  input[type="url"] {
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    resize: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+  }
+
+  /* ── Footer siempre al final de la hoja ── */
+  .a4-sheet footer {
+    margin-top: auto !important;
+  }
+}
