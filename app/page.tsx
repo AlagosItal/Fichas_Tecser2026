@@ -1027,7 +1027,14 @@ export default function AndexportGenerator() {
                 </div>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                    <h3 className="text-[8.5px] font-black text-[#c41e24] uppercase tracking-widest mb-1.5">Nota de Proceso</h3>
-                   <textarea className="w-full bg-transparent outline-none text-[11px] text-slate-600 leading-relaxed italic h-20 resize-none" value={sheet.pagina2.detalles_proceso} onChange={e=>setSheet(p=>({...p, pagina2:{...p.pagina2, detalles_proceso:e.target.value}}))} />
+                   <textarea
+                    className="w-full bg-transparent outline-none text-[11px] text-slate-600 leading-relaxed italic resize-none overflow-hidden"
+                    rows={1}
+                    value={sheet.pagina2.detalles_proceso}
+                    onInput={event => { event.currentTarget.style.height = 'auto'; event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`; }}
+                    ref={element => { if (element) { element.style.height = 'auto'; element.style.height = `${element.scrollHeight}px`; } }}
+                    onChange={event => setSheet(previous => ({ ...previous, pagina2: { ...previous.pagina2, detalles_proceso: event.target.value } }))}
+                   />
                 </div>
               </section>
             </div>

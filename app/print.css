@@ -137,7 +137,6 @@
     background: transparent !important;
     resize: none !important;
     overflow: visible !important;
-    height: auto !important;
     white-space: pre-wrap !important;
     word-break: break-word !important;
   }
