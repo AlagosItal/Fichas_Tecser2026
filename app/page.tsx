@@ -438,12 +438,11 @@ export default function AndexportGenerator() {
 
   const saveToFirestore = async () => {
     setIsSaving(true);
-    // Timeout safety
+    let isTimeout = false;
     const timeoutId = setTimeout(() => {
-      if (isSaving) {
-        setIsSaving(false);
-        alert("La conexión con Firebase está tardando demasiado. Revisa tu conexión o intenta con menos fotos.");
-      }
+      isTimeout = true;
+      setIsSaving(false);
+      alert("⚠️ La conexión con Firebase tardó más de lo esperado. Revisa la conexión o la configuración de Firebase.");
     }, 15000);
 
     try {
@@ -457,21 +456,25 @@ export default function AndexportGenerator() {
       
       await setDoc(docRef, {
         ...sheet,
-        productPhotos,
-        specTablePhoto,
-        brandLogo,
+        productPhotos: productPhotos.map(p => p || null),
+        specTablePhoto: specTablePhoto || null,
+        brandLogo: brandLogo || null,
         updatedAt: new Date().toISOString()
       });
       
-      console.log("Documento guardado con éxito:", docId);
-      const url = `${window.location.origin}/ver/${docId}`;
-      setShareUrl(url);
-      setIsSaving(false); // Force state change before modal
-      setShowShareModal(true);
+      clearTimeout(timeoutId);
+      if (!isTimeout) {
+        console.log("Documento guardado con éxito:", docId);
+        const url = `${window.location.origin}/ver/${docId}`;
+        setShareUrl(url);
+        setIsSaving(false);
+        setShowShareModal(true);
+      }
     } catch (error: any) {
+      clearTimeout(timeoutId);
       console.error("Error saving to Firestore:", error);
-      alert("Error al guardar: " + (error.message || "Problema de conexión"));
       setIsSaving(false);
+      alert("Error al guardar en Firebase: " + (error?.message || "Problema de conexión"));
     }
   };
 
@@ -482,7 +485,6 @@ export default function AndexportGenerator() {
     setIsPrinting(true);
 
     try {
-      // Obtener HTML de todas las hojas
       const sheets = document.querySelectorAll<HTMLElement>('.a4-sheet');
       if (sheets.length === 0) {
         alert('❌ No hay hojas para exportar');
@@ -490,71 +492,44 @@ export default function AndexportGenerator() {
         return;
       }
 
-      // Concatenar HTML de todas las hojas
-      let combinedHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-            .a4-sheet {
-              width: 210mm;
-              height: 297mm;
-              page-break-after: always;
-              display: block;
-            }
-            @page { margin: 0; size: A4; }
-            @media print { 
-              * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            }
-          </style>
-        </head>
-        <body>
-      `;
+      // Exportación directa en cliente con jsPDF y html2canvas (no depende de Puppeteer/Vercel)
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default || html2canvasModule;
+      const { jsPDF } = await import('jspdf');
 
-      // Copiar cada hoja
-      sheets.forEach((sheetEl) => {
-        combinedHTML += sheetEl.outerHTML;
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
       });
 
-      combinedHTML += `
-        </body>
-        </html>
-      `;
+      for (let i = 0; i < sheets.length; i++) {
+        const sheetEl = sheets[i];
+        
+        const canvas = await html2canvas(sheetEl, {
+          scale: 2, // 300 DPI alta definición
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false
+        });
 
-      // Enviar al servidor
-      const fileName = `Ficha-${sheet.codigo || 'tecnica'}.pdf`;
-      
-      console.log('📤 Enviando al servidor...');
-      const response = await fetch('/api/export-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html: combinedHTML, fileName })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status}`);
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        if (i > 0) {
+          pdf.addPage('a4', 'portrait');
+        }
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
       }
 
-      // Descargar PDF
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const fileName = `Ficha-${sheet.codigo || 'tecnica'}.pdf`;
+      pdf.save(fileName);
+      console.log('✅ PDF descargado exitosamente');
 
-      alert(`✅ PDF "${fileName}" descargado`);
-      console.log('✅ PDF generado en servidor');
-
-    } catch (error) {
-      console.error('Error:', error);
-      alert('❌ Error al generar PDF. Revisa consola.');
+    } catch (error: any) {
+      console.error('Error al generar PDF con jsPDF:', error);
+      // Fallback a impresión nativa del navegador
+      window.print();
     } finally {
       setIsPrinting(false);
     }
