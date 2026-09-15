@@ -93,7 +93,7 @@ export default function AndexportGenerator() {
   const [inputUrl, setInputUrl] = useState("");
   const [inputCatalogUrl, setInputCatalogUrl] = useState("");
   const [productPhotos, setProductPhotos] = useState<(string | null)[]>([null, null, null, null, null, null]);
-  const [files, setFiles] = useState<{ id: string; name: string; type: string; base64: string }[]>([]);
+  const [files, setFiles] = useState<{ id: string; name: string; type: string; base64: string; size?: number }[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -244,37 +244,93 @@ export default function AndexportGenerator() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFiles = e.target.files;
     if (!uploadedFiles) return;
+
     Array.from(uploadedFiles).forEach(file => {
+      if (file.size > 3.5 * 1024 * 1024) {
+        alert(`⚠️ El archivo "${file.name}" pesa ${(file.size / (1024 * 1024)).toFixed(1)} MB. Vercel limita las peticiones a un máximo de 4.5 MB en total. Te sugerimos subir un PDF con solo las páginas necesarias o más comprimido.`);
+      }
+
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFiles(prev => [...prev, {
-          id: Math.random().toString(36).substr(2, 9),
-          name: file.name,
-          type: file.type,
-          base64: (reader.result as string).split(',')[1]
-        }]);
-      };
-      reader.readAsDataURL(file);
+
+      if (file.type.startsWith('image/')) {
+        reader.onloadend = () => {
+          const img = new (window as any).Image();
+          img.src = reader.result as string;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 1200;
+            const scaleSize = Math.min(1, MAX_WIDTH / img.width);
+            canvas.width = img.width * scaleSize;
+            canvas.height = img.height * scaleSize;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const compressed = canvas.toDataURL('image/jpeg', 0.6);
+            setFiles(prev => [...prev, {
+              id: Math.random().toString(36).substr(2, 9),
+              name: file.name,
+              type: 'image/jpeg',
+              size: file.size,
+              base64: compressed.split(',')[1]
+            }]);
+          };
+        };
+        reader.readAsDataURL(file);
+      } else {
+        reader.onloadend = () => {
+          setFiles(prev => [...prev, {
+            id: Math.random().toString(36).substr(2, 9),
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            base64: (reader.result as string).split(',')[1]
+          }]);
+        };
+        reader.readAsDataURL(file);
+      }
     });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const generateSheet = async () => {
+    const payload = {
+      inputText,
+      inputUrl,
+      inputCatalogUrl,
+      productPhotos: productPhotos.filter(Boolean).slice(0, 2),
+      specTablePhoto,
+      files
+    };
+
+    const payloadString = JSON.stringify(payload);
+    const payloadSizeBytes = new Blob([payloadString]).size;
+    const payloadSizeMB = (payloadSizeBytes / (1024 * 1024)).toFixed(2);
+
+    if (payloadSizeBytes > 4.2 * 1024 * 1024) {
+      alert(`⚠️ Los archivos adjuntos son demasiado pesados (${payloadSizeMB} MB). El servidor (Vercel) permite un máximo de 4.5 MB en total.\n\nPor favor:\n1. Elimina alguno de los documentos adjuntos.\n2. Sube únicamente las páginas del PDF donde están las especificaciones técnicas.`);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          inputText,
-          inputUrl,
-          inputCatalogUrl,
-          productPhotos,
-          specTablePhoto,
-          files
-        })
+        body: payloadString
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(responseText);
+      } catch (err) {
+        if (response.status === 413 || responseText.toLowerCase().includes('entity too large') || responseText.toLowerCase().includes('body too large')) {
+          throw new Error(`Los documentos o imágenes son demasiado pesados (${payloadSizeMB} MB). Se superó el límite de 4.5 MB de Vercel. Por favor sube PDFs más pequeños o menos páginas.`);
+        }
+        throw new Error(`Error en el servidor (${response.status}): ${responseText.slice(0, 150)}`);
+      }
 
       if (!response.ok) {
         throw new Error(data.error || `Error del servidor (${response.status})`);
@@ -615,7 +671,14 @@ export default function AndexportGenerator() {
                       <div className="w-8 h-8 bg-white border border-slate-200 rounded flex items-center justify-center shrink-0">
                         {f.type.includes('pdf') ? <FileText className="w-4 h-4 text-red-500" /> : <ImageIcon className="w-4 h-4 text-blue-500" />}
                       </div>
-                      <span className="text-xs font-medium text-slate-600 truncate">{f.name}</span>
+                      <div className="min-w-0 flex flex-col">
+                        <span className="text-xs font-medium text-slate-600 truncate">{f.name}</span>
+                        {f.size && (
+                          <span className={`text-[10px] ${f.size > 3.5 * 1024 * 1024 ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
+                            {(f.size / (1024 * 1024)).toFixed(1)} MB {f.size > 3.5 * 1024 * 1024 ? '(Muy pesado para Vercel)' : ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <button 
                       onClick={(e) => {
