@@ -458,7 +458,9 @@ export default function ClientView() {
           .a4-sheet {
             display: block !important;
             width: 210mm !important;
-            height: 295.5mm !important;
+            height: auto !important;
+            min-height: 297mm !important;
+            max-height: none !important;
             margin: 0 !important;
             padding: 0 !important;
             break-after: page !important;
@@ -467,9 +469,16 @@ export default function ClientView() {
             box-sizing: border-box !important;
             background: white !important;
             position: relative !important;
-            overflow: hidden !important;
+            overflow: visible !important;
             opacity: 1 !important;
             visibility: visible !important;
+          }
+
+          .a4-sheet > div {
+            height: auto !important;
+            min-height: 297mm !important;
+            max-height: none !important;
+            overflow: visible !important;
           }
 
           .a4-sheet:first-child {
@@ -480,14 +489,6 @@ export default function ClientView() {
           .a4-sheet:last-child {
             break-after: avoid !important;
             page-break-after: avoid !important;
-          }
-
-          /* Chrome-specific block fix */
-          @media screen and (-webkit-min-device-pixel-ratio:0) {
-            .a4-sheet {
-              height: 293mm !important;
-              page-break-after: always !important;
-            }
           }
         }
       `}</style>

@@ -4,9 +4,9 @@
    NO afecta el diseño de la aplicación en pantalla.
 
    ESTRATEGIA:
-   - .a4-sheet = contenedor rígido de 297mm (una página exacta)
-   - .a4-sheet > div = contenido interior; se escala con JS zoom antes de imprimir
-   - overflow: hidden en .a4-sheet actúa como red de seguridad final
+   - .a4-sheet = height auto + overflow visible (NUNCA recorta)
+   - min-height: 297mm garantiza que cada hoja ocupe al menos una página
+   - page-break-after: always asegura salto de página entre hojas
    ============================================================ */
 
 @page {
@@ -51,17 +51,19 @@
     flex: none !important;
   }
 
-  /* ── Cada hoja A4 (contenedor rígido) ── */
+  /* ── Cada hoja A4 ──
+     CRÍTICO: height auto + overflow visible = nunca se recorta el contenido.
+     min-height 297mm asegura que cada bloque ocupe una página entera. */
   .a4-sheet {
     display: block !important;
     width: 210mm !important;
-    height: 297mm !important;
-    min-height: 0 !important;
-    max-height: 297mm !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
     box-sizing: border-box !important;
     padding: 0 !important;
     margin: 0 !important;
-    overflow: hidden !important;          /* Red de seguridad: nunca sangrar a la página siguiente */
+    overflow: visible !important;
     page-break-before: always !important;
     page-break-after: always !important;
     page-break-inside: avoid !important;
@@ -78,17 +80,16 @@
     break-before: auto !important;
   }
 
-  /* ── Div interno: el JS aplica zoom aquí antes de imprimir ──
-     overflow VISIBLE aquí para que el zoom JS pueda trabajar correctamente.
-     El .a4-sheet padre actúa como clip final. */
+  /* ── Div interno ── */
   .a4-sheet > div {
     display: flex !important;
     flex-direction: column !important;
     width: 100% !important;
-    height: 297mm !important;
-    max-height: 297mm !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
     box-sizing: border-box !important;
-    overflow: visible !important;         /* Visible: zoom JS controla el ajuste */
+    overflow: visible !important;
     transform-origin: top left !important;
   }
 
@@ -99,18 +100,18 @@
     object-fit: contain !important;
   }
 
-  /* Contenedor de imagen de página completa (galería / spec table) */
+  /* Contenedor flex-1 de páginas de galería y spec table */
   .a4-sheet .flex-1 {
-    flex: 1 1 0 !important;
+    flex: 1 1 auto !important;
     min-height: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
 
   .a4-sheet .flex-1 img {
     width: auto !important;
     height: auto !important;
     max-width: 100% !important;
-    max-height: 100% !important;
+    max-height: 230mm !important;
     object-fit: contain !important;
   }
 
@@ -127,7 +128,7 @@
     border-collapse: collapse !important;
   }
 
-  /* ── Inputs y textareas: se muestran como texto plano ── */
+  /* ── Inputs y textareas: texto plano sin bordes ── */
   textarea,
   input[type="text"],
   input[type="url"] {

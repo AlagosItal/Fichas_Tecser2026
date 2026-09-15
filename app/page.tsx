@@ -503,52 +503,81 @@ export default function AndexportGenerator() {
         compress: true
       });
 
+      // A4 en mm
+      const PDF_W = 210;
+      const PDF_H = 297;
+
       for (let i = 0; i < sheets.length; i++) {
         const sheetEl = sheets[i];
-        
+
+        // ── 1. Guardar estilos originales y forzar overflow visible para captura completa ──
+        const originalOverflow = sheetEl.style.overflow;
+        const originalMaxHeight = sheetEl.style.maxHeight;
+        const originalHeight = sheetEl.style.height;
+        sheetEl.style.overflow = 'visible';
+        sheetEl.style.maxHeight = 'none';
+        sheetEl.style.height = 'auto';
+
+        // Capturar usando el tamaño REAL (scrollHeight) del elemento
         const canvas = await html2canvas(sheetEl, {
-          scale: 2, // 300 DPI
+          scale: 2,
           useCORS: true,
           allowTaint: true,
           backgroundColor: '#ffffff',
-          logging: false
+          logging: false,
+          width: sheetEl.scrollWidth,
+          height: sheetEl.scrollHeight,
+          windowWidth: sheetEl.scrollWidth,
+          windowHeight: sheetEl.scrollHeight,
         });
 
-        const imgData = canvas.toDataURL('image/jpeg', 0.98);
+        // ── 2. Restaurar estilos originales ──
+        sheetEl.style.overflow = originalOverflow;
+        sheetEl.style.maxHeight = originalMaxHeight;
+        sheetEl.style.height = originalHeight;
+
         if (i > 0) {
           pdf.addPage('a4', 'portrait');
         }
 
-        // Auto-escala proporcional estricta para garantizar que el 100% del contenido entre en la página A4
-        const pdfWidth = 210;
-        const pdfHeight = 297;
-        const imgRatio = canvas.width / canvas.height;
-        const pageRatio = pdfWidth / pdfHeight;
+        // ── 3. Escalar proporcionalmente: el contenido SIEMPRE entra en el A4 ──
+        const canvasW = canvas.width;
+        const canvasH = canvas.height;
 
-        let renderWidth = pdfWidth;
-        let renderHeight = pdfHeight;
+        // Escala para que el ANCHO encaje exactamente en 210mm
+        // Si el contenido es más alto que 297mm, se reduce para que entre
+        const scaleByWidth = PDF_W / canvasW;
+        const scaledH = canvasH * scaleByWidth;
+
+        let renderWidth: number;
+        let renderHeight: number;
         let xPos = 0;
         let yPos = 0;
 
-        if (imgRatio < pageRatio) {
-          renderHeight = pdfHeight;
-          renderWidth = pdfHeight * imgRatio;
-          xPos = (pdfWidth - renderWidth) / 2;
+        if (scaledH <= PDF_H) {
+          // El contenido entra completo a escala normal
+          renderWidth = PDF_W;
+          renderHeight = scaledH;
+          yPos = 0; // alineado al top
         } else {
-          renderWidth = pdfWidth;
-          renderHeight = pdfWidth / imgRatio;
+          // El contenido es más alto que A4: escalar para que quepa en altura
+          const scaleByHeight = PDF_H / canvasH;
+          renderHeight = PDF_H;
+          renderWidth = canvasW * scaleByHeight;
+          xPos = (PDF_W - renderWidth) / 2;
           yPos = 0;
         }
 
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         pdf.addImage(imgData, 'JPEG', xPos, yPos, renderWidth, renderHeight, undefined, 'FAST');
       }
 
       const fileName = `Ficha-${sheet.codigo || 'tecnica'}.pdf`;
       pdf.save(fileName);
-      console.log('✅ PDF descargado exitosamente sin cortes');
+      console.log('✅ PDF exportado sin recortes');
 
     } catch (error: any) {
-      console.error('Error al generar PDF con jsPDF:', error);
+      console.error('Error al generar PDF:', error);
       window.print();
     } finally {
       setIsPrinting(false);
