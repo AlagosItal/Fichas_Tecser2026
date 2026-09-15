@@ -98,23 +98,40 @@ export async function POST(req: NextRequest) {
 
     const genAI = new GoogleGenAI({ apiKey });
     
-    // Modelos Gemini 3.x con fallback: gemini-3.7-flash -> gemini-3.5-flash -> gemini-3.8-flash
-    const candidateModels = ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-3.8-flash"];
+    // Modelos con fallback ordenados por calidad y disponibilidad garantizada
+    const candidateModels = [
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-2.0-flash-lite",
+      "gemini-2.5-pro",
+      "gemini-1.5-pro"
+    ];
     let result = null;
-    let lastError = null;
+    let lastError: any = null;
 
     for (const modelName of candidateModels) {
-      try {
-        result = await genAI.models.generateContent({
-          model: modelName,
-          contents: [{ parts }],
-          config: { responseMimeType: "application/json" }
-        });
-        if (result && result.text) break;
-      } catch (err: any) {
-        console.warn(`Error con modelo ${modelName}:`, err?.message || err);
-        lastError = err;
+      // Intentar hasta 2 veces por modelo en caso de saturación temporal (503/429)
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          result = await genAI.models.generateContent({
+            model: modelName,
+            contents: [{ parts }],
+            config: { responseMimeType: "application/json" }
+          });
+          if (result && result.text) break;
+        } catch (err: any) {
+          console.warn(`[Intento ${attempt + 1}] Error con modelo ${modelName}:`, err?.message || err);
+          lastError = err;
+          const errMsg = typeof err === 'string' ? err : err?.message || JSON.stringify(err || {});
+          if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('429')) {
+            await new Promise(r => setTimeout(r, 1200));
+          } else {
+            break;
+          }
+        }
       }
+      if (result && result.text) break;
     }
 
     if (!result || !result.text) {
@@ -130,8 +147,16 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error("Error en API /api/generate:", error);
+    let errorMessage = error?.message || 'Error procesando solicitud con Gemini';
+    try {
+      const parsed = JSON.parse(errorMessage);
+      if (parsed?.error?.message) {
+        errorMessage = parsed.error.message;
+      }
+    } catch (_) {}
+
     return NextResponse.json(
-      { error: error?.message || 'Error procesando solicitud con Gemini' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
