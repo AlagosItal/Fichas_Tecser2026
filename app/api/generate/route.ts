@@ -3,6 +3,32 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const maxDuration = 60;
 
+/**
+ * Función auxiliar para calcular retraso con Backoff Exponencial y Jitter
+ */
+const getBackoffDelay = (attempt: number, baseDelayMs: number = 1000): number => {
+  const exponential = baseDelayMs * Math.pow(2, attempt);
+  const jitter = Math.random() * 500; // Ruido aleatorio entre 0 y 500ms
+  return exponential + jitter;
+};
+
+/**
+ * Determina si un error es transitorio (503, 429, UNAVAILABLE, Rate Limit, Timeout)
+ */
+const isTransientError = (err: any): boolean => {
+  const errMsg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err || {})).toLowerCase();
+  return (
+    errMsg.includes('503') ||
+    errMsg.includes('unavailable') ||
+    errMsg.includes('high demand') ||
+    errMsg.includes('429') ||
+    errMsg.includes('resource_exhausted') ||
+    errMsg.includes('quota') ||
+    errMsg.includes('rate') ||
+    errMsg.includes('timeout')
+  );
+};
+
 export async function POST(req: NextRequest) {
   try {
     const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -80,7 +106,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Adjuntar archivos (imágenes y PDFs)
+    // Adjuntar archivos (imágenes optimizadas)
     if (Array.isArray(files)) {
       files.forEach((f: { base64: string; type: string }) => {
         if (f.base64 && f.type) {
@@ -98,44 +124,49 @@ export async function POST(req: NextRequest) {
 
     const genAI = new GoogleGenAI({ apiKey });
     
-    // Modelos con fallback ordenados por calidad y disponibilidad garantizada
+    // Cadena de contingencia estricta para producción
     const candidateModels = [
-      "gemini-2.5-flash",
-      "gemini-2.0-flash",
-      "gemini-1.5-flash",
-      "gemini-2.0-flash-lite",
-      "gemini-2.5-pro",
-      "gemini-1.5-pro"
+      "gemini-3.7-flash",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-2.5-flash"
     ];
+
     let result = null;
     let lastError: any = null;
+    const MAX_ATTEMPTS = 3;
 
     for (const modelName of candidateModels) {
-      // Intentar hasta 2 veces por modelo en caso de saturación temporal (503/429)
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         try {
           result = await genAI.models.generateContent({
             model: modelName,
             contents: [{ parts }],
             config: { responseMimeType: "application/json" }
           });
+
           if (result && result.text) break;
         } catch (err: any) {
-          console.warn(`[Intento ${attempt + 1}] Error con modelo ${modelName}:`, err?.message || err);
           lastError = err;
-          const errMsg = typeof err === 'string' ? err : err?.message || JSON.stringify(err || {});
-          if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('429')) {
-            await new Promise(r => setTimeout(r, 1200));
+          const isTransient = isTransientError(err);
+          console.warn(`[Modelo: ${modelName} | Intento ${attempt + 1}/${MAX_ATTEMPTS}] Error:`, err?.message || err);
+
+          // Si es un error transitorio y aún quedan intentos, esperar con Backoff Exponencial + Jitter
+          if (isTransient && attempt < MAX_ATTEMPTS - 1) {
+            const delay = getBackoffDelay(attempt);
+            await new Promise(resolve => setTimeout(resolve, delay));
           } else {
+            // Si el error no es recuperable (ej. 404 / 400) o agotó intentos, salir del bucle de reintentos
             break;
           }
         }
       }
+
       if (result && result.text) break;
     }
 
     if (!result || !result.text) {
-      throw lastError || new Error("No se pudo obtener respuesta de los modelos de Gemini.");
+      throw lastError || new Error("No se pudo obtener respuesta de la familia de modelos Gemini.");
     }
 
     const rawText = result.text.trim();
@@ -147,13 +178,28 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error("Error en API /api/generate:", error);
-    let errorMessage = error?.message || 'Error procesando solicitud con Gemini';
-    try {
-      const parsed = JSON.parse(errorMessage);
-      if (parsed?.error?.message) {
-        errorMessage = parsed.error.message;
+    
+    let errorMessage = "Ocurrió un error al procesar la solicitud con Gemini.";
+
+    if (error?.message) {
+      try {
+        const parsed = JSON.parse(error.message);
+        if (parsed?.error?.message) {
+          errorMessage = parsed.error.message;
+        } else {
+          errorMessage = error.message;
+        }
+      } catch (_) {
+        errorMessage = error.message;
       }
-    } catch (_) {}
+    }
+
+    // Traducción y limpieza de mensajes frecuentes de la API para el usuario
+    if (errorMessage.toLowerCase().includes('high demand') || errorMessage.toLowerCase().includes('503') || errorMessage.toLowerCase().includes('unavailable')) {
+      errorMessage = "Los servidores de IA están experimentando una alta demanda temporal. Por favor reintenta en unos instantes.";
+    } else if (errorMessage.toLowerCase().includes('resource_exhausted') || errorMessage.toLowerCase().includes('429')) {
+      errorMessage = "Límite de cuota alcanzado. Espera un momento antes de volver a generar.";
+    }
 
     return NextResponse.json(
       { error: errorMessage },
