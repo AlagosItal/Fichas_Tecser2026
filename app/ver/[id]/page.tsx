@@ -206,7 +206,7 @@ export default function ClientView() {
 
             <section className="mb-6">
                <div className="flex items-center gap-4 mb-4">
-                <h2 className="bg-[#c41e24] text-white py-2 px-6 font-black text-[10px] uppercase tracking-[0.2em]">Tabla Comparativa de Grados</h2>
+                <h2 className="bg-[#c41e24] text-white py-2 px-6 font-black text-[10px] uppercase tracking-[0.2em]">Características Técnicas</h2>
                 <div className="h-[2px] flex-1 bg-slate-100"></div>
               </div>
               <table className="w-full text-[11px] text-left border-collapse border border-slate-200 table-fixed">
