@@ -492,7 +492,6 @@ export default function AndexportGenerator() {
         return;
       }
 
-      // Exportación directa en cliente con jsPDF y html2canvas (no depende de Puppeteer/Vercel)
       const html2canvasModule = await import('html2canvas');
       const html2canvas = html2canvasModule.default || html2canvasModule;
       const { jsPDF } = await import('jspdf');
@@ -508,27 +507,48 @@ export default function AndexportGenerator() {
         const sheetEl = sheets[i];
         
         const canvas = await html2canvas(sheetEl, {
-          scale: 2, // 300 DPI alta definición
+          scale: 2, // 300 DPI
           useCORS: true,
           allowTaint: true,
           backgroundColor: '#ffffff',
           logging: false
         });
 
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/jpeg', 0.98);
         if (i > 0) {
           pdf.addPage('a4', 'portrait');
         }
-        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+
+        // Auto-escala proporcional estricta para garantizar que el 100% del contenido entre en la página A4
+        const pdfWidth = 210;
+        const pdfHeight = 297;
+        const imgRatio = canvas.width / canvas.height;
+        const pageRatio = pdfWidth / pdfHeight;
+
+        let renderWidth = pdfWidth;
+        let renderHeight = pdfHeight;
+        let xPos = 0;
+        let yPos = 0;
+
+        if (imgRatio < pageRatio) {
+          renderHeight = pdfHeight;
+          renderWidth = pdfHeight * imgRatio;
+          xPos = (pdfWidth - renderWidth) / 2;
+        } else {
+          renderWidth = pdfWidth;
+          renderHeight = pdfWidth / imgRatio;
+          yPos = 0;
+        }
+
+        pdf.addImage(imgData, 'JPEG', xPos, yPos, renderWidth, renderHeight, undefined, 'FAST');
       }
 
       const fileName = `Ficha-${sheet.codigo || 'tecnica'}.pdf`;
       pdf.save(fileName);
-      console.log('✅ PDF descargado exitosamente');
+      console.log('✅ PDF descargado exitosamente sin cortes');
 
     } catch (error: any) {
       console.error('Error al generar PDF con jsPDF:', error);
-      // Fallback a impresión nativa del navegador
       window.print();
     } finally {
       setIsPrinting(false);
@@ -820,41 +840,127 @@ export default function AndexportGenerator() {
         
         {/* --- PAGE 1 --- */}
         <div className="a4-sheet bg-white flex flex-col font-sans" id="sheet-1">
-          <div className="p-[30px] flex-1 flex flex-col h-full">
-            <header className="flex justify-between items-start border-b-4 border-[#c41e24] pb-4 mb-6">
-              <div className="flex flex-col items-start gap-2">
-                <img 
-                  src="/andexport-logo.png" 
-                  alt="Andexport Logo" 
-                  className="h-20 w-auto object-contain"
-                />
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] pl-2 border-l-4 border-[#c41e24] mt-1 max-w-[500px]">
-                  Maquinaria e Insumos para la Industria del Plástico y Packaging
-                </span>
-              </div>
-              <div className="text-right flex flex-col items-end shrink-0 pl-10 h-24 justify-between pt-1">
-                <span className="bg-[#c41e24] text-white px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-sm shadow-lg shadow-red-900/10">Ficha Técnica</span>
-                <span className="text-slate-400 text-[9px] font-mono font-bold tracking-tighter">DOCID: {sheet.codigo || "PENDING"}</span>
-              </div>
-            </header>
+          <div className="p-[26px] flex-1 flex flex-col h-full justify-between">
+            <div>
+              <header className="flex justify-between items-start border-b-4 border-[#c41e24] pb-3 mb-4">
+                <div className="flex flex-col items-start gap-1.5">
+                  <img 
+                    src="/andexport-logo.png" 
+                    alt="Andexport Logo" 
+                    className="h-14 w-auto object-contain"
+                  />
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] pl-2 border-l-4 border-[#c41e24] mt-0.5 max-w-[480px]">
+                    Maquinaria e Insumos para la Industria del Plástico y Packaging
+                  </span>
+                </div>
+                <div className="text-right flex flex-col items-end shrink-0 pl-6 h-16 justify-between pt-0.5">
+                  <span className="bg-[#c41e24] text-white px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-sm shadow-md shadow-red-900/10">Ficha Técnica</span>
+                  <span className="text-slate-400 text-[8px] font-mono font-bold tracking-tighter">DOCID: {sheet.codigo || "PENDING"}</span>
+                </div>
+              </header>
 
-            <section className="mb-10">
-              <div className="flex items-center gap-4 mb-6">
-                <h2 className="bg-slate-800 text-white py-2 px-6 font-black text-[10px] uppercase tracking-[0.3em]">Información del Producto</h2>
-                <div className="h-[2px] flex-1 bg-slate-100"></div>
-              </div>
-              
-              <div className="flex justify-between items-start gap-12">
-                <div className="flex-1 grid grid-cols-[160px_1fr] gap-y-4 text-[13px] content-start">
-                  {[
-                    ["Código Interno", "codigo"],
-                    ["Nombre del Producto", "nombre"],
-                    ["Tipo Presentación", "presentacion"]
-                  ].map(([label, key]) => (
-                    <React.Fragment key={key}>
-                      <span className="font-bold text-slate-400 uppercase text-[9px] flex items-start pt-1 tracking-wider">{label}:</span>
+              <section className="mb-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <h2 className="bg-slate-800 text-white py-1.5 px-5 font-black text-[9px] uppercase tracking-[0.25em]">Información del Producto</h2>
+                  <div className="h-[2px] flex-1 bg-slate-100"></div>
+                </div>
+                
+                <div className="flex justify-between items-start gap-8">
+                  <div className="flex-1 grid grid-cols-[140px_1fr] gap-y-2.5 text-[12px] content-start">
+                    {[
+                      ["Código Interno", "codigo"],
+                      ["Nombre del Producto", "nombre"],
+                      ["Tipo Presentación", "presentacion"]
+                    ].map(([label, key]) => (
+                      <React.Fragment key={key}>
+                        <span className="font-bold text-slate-400 uppercase text-[8px] flex items-start pt-1 tracking-wider">{label}:</span>
+                        <textarea 
+                          className="w-full border-b border-transparent hover:border-slate-200 focus:border-[#c41e24] focus:ring-0 outline-none font-bold text-slate-800 py-0.5 transition-all bg-transparent uppercase resize-none h-auto min-h-[20px] leading-tight overflow-hidden"
+                          rows={1}
+                          onInput={(e) => {
+                            e.currentTarget.style.height = 'auto';
+                            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                          }}
+                          ref={(el) => {
+                            if (el) {
+                              el.style.height = 'auto';
+                              el.style.height = el.scrollHeight + 'px';
+                            }
+                          }}
+                          value={(sheet as any)[key]} 
+                          onChange={(e) => setSheet(prev => ({ ...prev, [key]: e.target.value }))}
+                        />
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="w-[150px] h-[150px] border border-slate-100 bg-white rounded-xl overflow-hidden relative shadow-sm shrink-0 flex items-center justify-center p-2 cursor-zoom-in"
+                      onClick={() => setSelectedImage(productPhotos[0])}
+                    >
+                      {productPhotos[0] ? (
+                        <img 
+                          src={productPhotos[0]} 
+                          alt="Producto" 
+                          className="max-w-full max-h-full object-contain hover:scale-105 transition-transform" 
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-center bg-slate-50/50">
+                           <ImageIcon className="w-8 h-8 text-slate-200 mb-1" />
+                           <span className="text-[7px] font-black uppercase text-slate-300 tracking-widest">Foto Principal</span>
+                        </div>
+                      )}
+                    </div>
+                    {brandLogo && (
+                      <div className="w-[150px] bg-white rounded-xl border border-slate-100 p-2 flex flex-col items-center justify-center gap-1 shadow-sm shrink-0">
+                        <img src={brandLogo} alt={sheet.brandName || "Marca"} className="max-w-[120px] max-h-[40px] object-contain" />
+                        {sheet.brandName && <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest text-center">{sheet.brandName}</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="mb-4">
+                <div className="flex items-center gap-3 mb-2.5">
+                  <h2 className="bg-slate-800 text-white py-1.5 px-5 font-black text-[9px] uppercase tracking-[0.2em]">Descripción Técnica</h2>
+                  <div className="h-[2px] flex-1 bg-slate-100"></div>
+                </div>
+                <textarea 
+                  className="w-full min-h-[60px] border-none focus:ring-0 outline-none text-[11.5px] text-slate-700 leading-relaxed overflow-hidden bg-white p-3 rounded-xl border border-slate-50"
+                  style={{ resize: 'none' }}
+                  onInput={(e) => {
+                    e.currentTarget.style.height = 'auto';
+                    e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                  }}
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = 'auto';
+                      el.style.height = el.scrollHeight + 'px';
+                    }
+                  }}
+                  value={sheet.descripcion_tecnica}
+                  onChange={(e) => setSheet(prev => ({ ...prev, descripcion_tecnica: e.target.value }))}
+                />
+              </section>
+
+              <section className="mb-2">
+                <div className="flex items-center gap-3 mb-2.5">
+                  <h2 className="bg-slate-800 text-white py-1.5 px-5 font-black text-[9px] uppercase tracking-[0.25em]">Propiedades Físicas</h2>
+                  <div className="h-[2px] flex-1 bg-slate-100"></div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  {sheet.caracteristicas.map((char, i) => (
+                    <div key={i} className="flex flex-col p-1.5 border border-slate-100 rounded-lg bg-slate-50/30">
+                      <input 
+                        className="text-[8px] font-black text-slate-400 uppercase tracking-tight mb-0.5 bg-transparent outline-none border-none focus:ring-0" 
+                        value={char.label}
+                        onChange={(e) => {
+                          const n = [...sheet.caracteristicas]; n[i].label = e.target.value; setSheet(p=>({...p, caracteristicas:n}))
+                        }}
+                      />
                       <textarea 
-                        className="w-full border-b border-transparent hover:border-slate-200 focus:border-[#c41e24] focus:ring-0 outline-none font-bold text-slate-800 py-0.5 transition-all bg-transparent uppercase resize-none h-auto min-h-[22px] leading-tight overflow-hidden"
+                        className="text-[11px] font-bold text-slate-700 leading-tight bg-transparent outline-none border-none focus:ring-0 resize-none h-auto overflow-hidden" 
                         rows={1}
                         onInput={(e) => {
                           e.currentTarget.style.height = 'auto';
@@ -866,103 +972,19 @@ export default function AndexportGenerator() {
                             el.style.height = el.scrollHeight + 'px';
                           }
                         }}
-                        value={(sheet as any)[key]} 
-                        onChange={(e) => setSheet(prev => ({ ...prev, [key]: e.target.value }))}
+                        value={char.value}
+                        onChange={(e) => {
+                          const n = [...sheet.caracteristicas]; n[i].value = e.target.value; setSheet(p=>({...p, caracteristicas:n}))
+                        }}
                       />
-                    </React.Fragment>
+                    </div>
                   ))}
                 </div>
-                <div className="flex flex-col gap-4">
-                  <div className="w-[200px] h-[200px] border border-slate-100 bg-white rounded-xl overflow-hidden relative shadow-sm shrink-0 flex items-center justify-center p-2 cursor-zoom-in"
-                    onClick={() => setSelectedImage(productPhotos[0])}
-                  >
-                    {productPhotos[0] ? (
-                      <img 
-                        src={productPhotos[0]} 
-                        alt="Producto" 
-                        className="max-w-full max-h-full object-contain hover:scale-105 transition-transform" 
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-center bg-slate-50/50">
-                         <ImageIcon className="w-10 h-10 text-slate-200 mb-2" />
-                         <span className="text-[8px] font-black uppercase text-slate-300 tracking-widest">Foto Principal</span>
-                      </div>
-                    )}
-                  </div>
-                  {brandLogo && (
-                    <div className="w-[200px] bg-white rounded-xl border border-slate-100 p-4 flex flex-col items-center justify-center gap-2 shadow-sm shrink-0">
-                      <img src={brandLogo} alt={sheet.brandName || "Marca"} className="max-w-[150px] max-h-[60px] object-contain" />
-                      {sheet.brandName && <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">{sheet.brandName}</span>}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
+              </section>
+            </div>
 
-            <section className="mb-10">
-              <div className="flex items-center gap-4 mb-6">
-                <h2 className="bg-slate-800 text-white py-2.5 px-6 font-black text-xs uppercase tracking-[0.2em]">Descripción Técnica</h2>
-                <div className="h-[2px] flex-1 bg-slate-100"></div>
-              </div>
-              <textarea 
-                className="w-full min-h-[120px] border-none focus:ring-0 outline-none text-[13px] text-slate-700 leading-relaxed overflow-hidden bg-white p-4 rounded-xl border border-slate-50"
-                style={{ resize: 'none' }}
-                onInput={(e) => {
-                  e.currentTarget.style.height = 'auto';
-                  e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                }}
-                ref={(el) => {
-                  if (el) {
-                    el.style.height = 'auto';
-                    el.style.height = el.scrollHeight + 'px';
-                  }
-                }}
-                value={sheet.descripcion_tecnica}
-                onChange={(e) => setSheet(prev => ({ ...prev, descripcion_tecnica: e.target.value }))}
-              />
-            </section>
-
-            <section className="flex-1">
-               <div className="flex items-center gap-4 mb-4">
-                <h2 className="bg-slate-800 text-white py-2 px-6 font-black text-[10px] uppercase tracking-[0.3em]">Propiedades Físicas</h2>
-                <div className="h-[2px] flex-1 bg-slate-100"></div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2">
-                {sheet.caracteristicas.map((char, i) => (
-                  <div key={i} className="flex flex-col p-2 border border-slate-100 rounded-lg bg-slate-50/30">
-                    <input 
-                      className="text-[9px] font-black text-slate-400 uppercase tracking-tight mb-0.5 bg-transparent outline-none border-none focus:ring-0" 
-                      value={char.label}
-                      onChange={(e) => {
-                        const n = [...sheet.caracteristicas]; n[i].label = e.target.value; setSheet(p=>({...p, caracteristicas:n}))
-                      }}
-                    />
-                    <textarea 
-                      className="text-[12px] font-bold text-slate-700 leading-tight bg-transparent outline-none border-none focus:ring-0 resize-none h-auto overflow-hidden" 
-                      rows={1}
-                      onInput={(e) => {
-                        e.currentTarget.style.height = 'auto';
-                        e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                      }}
-                      ref={(el) => {
-                        if (el) {
-                          el.style.height = 'auto';
-                          el.style.height = el.scrollHeight + 'px';
-                        }
-                      }}
-                      value={char.value}
-                      onChange={(e) => {
-                        const n = [...sheet.caracteristicas]; n[i].value = e.target.value; setSheet(p=>({...p, caracteristicas:n}))
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <footer className="mt-10 pt-8 border-t border-slate-100 flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-widest">
-              <div className="flex flex-col gap-1">
+            <footer className="mt-3 pt-3 border-t border-slate-100 flex justify-between text-[8px] text-slate-400 font-bold uppercase tracking-widest">
+              <div className="flex flex-col gap-0.5">
                 <span>Aeropuerto Norte 9627. Parque de Negocios ENEA. Pudahuel. Santiago - Chile.</span>
                 {shareUrl && <span className="text-[#c41e24] lowercase font-mono">Ver online: {shareUrl}</span>}
               </div>
@@ -973,95 +995,95 @@ export default function AndexportGenerator() {
 
         {/* --- PAGE 2 --- */}
         <div className="a4-sheet bg-white flex flex-col font-sans" id="sheet-2" style={{ breakBefore: 'always' }}>
-          <div className="p-[30px] flex-1 flex flex-col h-full">
-            <header className="flex justify-between items-start mb-6">
-              <div className="flex flex-col items-start">
-                <img 
-                  src="/andexport-logo.png" 
-                  alt="Andexport Logo" 
-                  className="h-12 w-auto object-contain mb-2"
-                />
-                <span className="text-[9px] text-slate-400 uppercase font-black tracking-widest pl-1">Análisis Técnico y Comparativo</span>
-              </div>
-              <div className="bg-slate-100 px-4 py-2 rounded text-[10px] font-bold text-slate-500 uppercase tracking-widest">Página Técnica 02</div>
-            </header>
-
-            <section className="mb-6">
-               <div className="flex items-center gap-4 mb-4">
-                <h2 className="bg-[#c41e24] text-white py-2 px-6 font-black text-[10px] uppercase tracking-[0.2em]">Características Técnicas</h2>
-                <div className="h-[2px] flex-1 bg-slate-100"></div>
-              </div>
-              <table className="w-full text-[11px] text-left border-collapse border border-slate-200 table-fixed">
-                <thead className="bg-slate-800 text-white">
-                  <tr>
-                    <th className="p-2 border border-slate-700 w-1/3 break-words">Producto / Variante</th>
-                    <th className="p-2 border border-slate-700 w-1/3 break-words">Propiedad Crítica</th>
-                    <th className="p-2 border border-slate-700 w-1/3 break-words">Valor Comparativo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sheet.pagina2.tabla_comparativa.map((row, i) => (
-                    <tr key={i} className="even:bg-slate-50">
-                      <td className="p-2 border border-slate-200 font-bold text-slate-700 uppercase align-top">
-                        <textarea 
-                          className="w-full bg-transparent outline-none resize-none overflow-hidden" 
-                          rows={1}
-                          onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
-                          ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
-                          value={row.producto} 
-                          onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].producto=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} 
-                        />
-                      </td>
-                      <td className="p-2 border border-slate-200 text-slate-500 uppercase align-top">
-                        <textarea 
-                          className="w-full bg-transparent outline-none resize-none overflow-hidden" 
-                          rows={1}
-                          onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
-                          ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
-                          value={row.propiedad} 
-                          onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].propiedad=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} 
-                        />
-                      </td>
-                      <td className="p-2 border border-slate-200 font-mono text-[#c41e24] font-bold align-top">
-                        <textarea 
-                          className="w-full bg-transparent outline-none resize-none overflow-hidden" 
-                          rows={1}
-                          onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
-                          ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
-                          value={row.valor} 
-                          onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].valor=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} 
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-
-            <section className="mb-6 grid grid-cols-2 gap-6">
-              <div>
-                <div className="flex items-center gap-4 mb-4">
-                  <h2 className="bg-slate-800 text-white py-2 px-6 font-black text-[10px] uppercase tracking-[0.2em]">Aplicaciones</h2>
+          <div className="p-[26px] flex-1 flex flex-col h-full justify-between">
+            <div>
+              <header className="flex justify-between items-start mb-4">
+                <div className="flex flex-col items-start">
+                  <img 
+                    src="/andexport-logo.png" 
+                    alt="Andexport Logo" 
+                    className="h-10 w-auto object-contain mb-1"
+                  />
+                  <span className="text-[8.5px] text-slate-400 uppercase font-black tracking-widest pl-1">Análisis Técnico y Comparativo</span>
                 </div>
-                <ul className="space-y-2">
-                  {sheet.pagina2.aplicaciones_industriales.map((app, i) => (
-                    <li key={i} className="flex items-center gap-3 text-[12px] text-slate-600 font-medium group">
-                      <div className="w-1.5 h-1.5 bg-[#c41e24] rounded-full"></div>
-                      <input className="flex-1 bg-transparent outline-none border-b border-transparent hover:border-slate-100" value={app} onChange={e=>{const n=[...sheet.pagina2.aplicaciones_industriales]; n[i]=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, aplicaciones_industriales:n}}))}} />
-                      <button onClick={()=>{const n=sheet.pagina2.aplicaciones_industriales.filter((_,idx)=>idx!==i); setSheet(p=>({...p, pagina2:{...p.pagina2, aplicaciones_industriales:n}}))}} className="text-red-400 opacity-0 group-hover:opacity-100">×</button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                 <h3 className="text-[9px] font-black text-[#c41e24] uppercase tracking-widest mb-2">Nota de Proceso</h3>
-                 <textarea className="w-full bg-transparent outline-none text-[12px] text-slate-600 leading-relaxed italic h-24 resize-none" value={sheet.pagina2.detalles_proceso} onChange={e=>setSheet(p=>({...p, pagina2:{...p.pagina2, detalles_proceso:e.target.value}}))} />
-              </div>
-            </section>
+                <div className="bg-slate-100 px-3 py-1.5 rounded text-[9px] font-bold text-slate-500 uppercase tracking-widest">Página Técnica 02</div>
+              </header>
 
-            <div className="flex-1"></div>
+              <section className="mb-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <h2 className="bg-[#c41e24] text-white py-1.5 px-5 font-black text-[9px] uppercase tracking-[0.2em]">Características Técnicas</h2>
+                  <div className="h-[2px] flex-1 bg-slate-100"></div>
+                </div>
+                <table className="w-full text-[10.5px] text-left border-collapse border border-slate-200 table-fixed">
+                  <thead className="bg-slate-800 text-white">
+                    <tr>
+                      <th className="p-2 border border-slate-700 w-1/3 break-words">Producto / Variante</th>
+                      <th className="p-2 border border-slate-700 w-1/3 break-words">Propiedad Crítica</th>
+                      <th className="p-2 border border-slate-700 w-1/3 break-words">Valor Comparativo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sheet.pagina2.tabla_comparativa.map((row, i) => (
+                      <tr key={i} className="even:bg-slate-50">
+                        <td className="p-1.5 border border-slate-200 font-bold text-slate-700 uppercase align-top">
+                          <textarea 
+                            className="w-full bg-transparent outline-none resize-none overflow-hidden" 
+                            rows={1}
+                            onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                            ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                            value={row.producto} 
+                            onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].producto=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} 
+                          />
+                        </td>
+                        <td className="p-1.5 border border-slate-200 text-slate-500 uppercase align-top">
+                          <textarea 
+                            className="w-full bg-transparent outline-none resize-none overflow-hidden" 
+                            rows={1}
+                            onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                            ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                            value={row.propiedad} 
+                            onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].propiedad=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} 
+                          />
+                        </td>
+                        <td className="p-1.5 border border-slate-200 font-mono text-[#c41e24] font-bold align-top">
+                          <textarea 
+                            className="w-full bg-transparent outline-none resize-none overflow-hidden" 
+                            rows={1}
+                            onInput={(e) => { e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'; }}
+                            ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                            value={row.valor} 
+                            onChange={e=>{const n=[...sheet.pagina2.tabla_comparativa]; n[i].valor=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, tabla_comparativa:n}}))}} 
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
 
-            <footer className="mt-10 pt-8 border-t border-slate-100 flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+              <section className="mb-4 grid grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <h2 className="bg-slate-800 text-white py-1.5 px-5 font-black text-[9px] uppercase tracking-[0.2em]">Aplicaciones</h2>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {sheet.pagina2.aplicaciones_industriales.map((app, i) => (
+                      <li key={i} className="flex items-center gap-2 text-[11px] text-slate-600 font-medium group">
+                        <div className="w-1.5 h-1.5 bg-[#c41e24] rounded-full"></div>
+                        <input className="flex-1 bg-transparent outline-none border-b border-transparent hover:border-slate-100" value={app} onChange={e=>{const n=[...sheet.pagina2.aplicaciones_industriales]; n[i]=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, aplicaciones_industriales:n}}))}} />
+                        <button onClick={()=>{const n=sheet.pagina2.aplicaciones_industriales.filter((_,idx)=>idx!==i); setSheet(p=>({...p, pagina2:{...p.pagina2, aplicaciones_industriales:n}}))}} className="text-red-400 opacity-0 group-hover:opacity-100">×</button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                   <h3 className="text-[8.5px] font-black text-[#c41e24] uppercase tracking-widest mb-1.5">Nota de Proceso</h3>
+                   <textarea className="w-full bg-transparent outline-none text-[11px] text-slate-600 leading-relaxed italic h-20 resize-none" value={sheet.pagina2.detalles_proceso} onChange={e=>setSheet(p=>({...p, pagina2:{...p.pagina2, detalles_proceso:e.target.value}}))} />
+                </div>
+              </section>
+            </div>
+
+            <footer className="mt-3 pt-3 border-t border-slate-100 flex justify-between text-[8px] text-slate-400 font-bold uppercase tracking-widest">
               <span>Aeropuerto Norte 9627. Parque de Negocios ENEA. Pudahuel. Santiago - Chile.</span>
               <div className="flex gap-4">
                  <span>ISO 9001:2015</span>
@@ -1073,99 +1095,94 @@ export default function AndexportGenerator() {
 
         {/* --- PAGE 3 --- */}
         <div className="a4-sheet bg-white shadow-2xl flex flex-col font-sans ring-1 ring-slate-200" style={{ pageBreakBefore: 'always' }} id="sheet-3">
-          <div className="p-[40px] flex-1 flex flex-col h-full">
-            <header className="mb-14 border-l-8 border-[#c41e24] pl-6 py-2">
-              <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Recursos y Soporte</h1>
-              <p className="text-xs font-medium text-slate-400">Bibliografía técnica y documentación complementaria</p>
-            </header>
+          <div className="p-[28px] flex-1 flex flex-col h-full justify-between">
+            <div>
+              <header className="mb-6 border-l-6 border-[#c41e24] pl-4 py-1">
+                <h1 className="text-xl font-black text-slate-800 uppercase tracking-tight">Recursos y Soporte</h1>
+                <p className="text-[11px] font-medium text-slate-400">Bibliografía técnica y documentación complementaria</p>
+              </header>
 
-            <section className="mb-12">
-               <div className="flex items-center gap-4 mb-8">
-                <h2 className="bg-slate-800 text-white py-2.5 px-6 font-black text-xs uppercase tracking-[0.2em]">Documentación Digital</h2>
-                <div className="h-[2px] flex-1 bg-slate-100"></div>
-              </div>
-              <div className="grid grid-cols-2 gap-6">
-                 {sheet.pagina3.recursos.map((res, i) => (
+              <section className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="bg-slate-800 text-white py-1.5 px-5 font-black text-[9px] uppercase tracking-[0.2em]">Documentación Digital</h2>
+                  <div className="h-[2px] flex-1 bg-slate-100"></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                   {sheet.pagina3.recursos.map((res, i) => (
+                     <a 
+                      href={res.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      key={i} 
+                      className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-[#c41e24] transition-all cursor-pointer group/link"
+                     >
+                        <div className="bg-white p-2 rounded-lg shadow-sm group-hover/link:bg-[#c41e24] transition-colors">
+                          <LinkIcon className="w-5 h-5 text-[#c41e24] group-hover/link:text-white transition-colors" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-[11px] font-black text-slate-800 uppercase mb-0.5">{res.titulo}</h4>
+                          <p className="text-[9px] text-slate-400 font-mono truncate w-full">{res.url}</p>
+                        </div>
+                     </a>
+                   ))}
                    <a 
-                    href={res.url} 
+                    href={sheet.catalogoUrl || "#"} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    key={i} 
-                    className="flex items-start gap-4 p-6 bg-slate-50 rounded-2xl border border-slate-200 hover:border-[#c41e24] transition-all cursor-pointer group/link"
+                    className="flex items-start gap-3 p-4 bg-[#c41e24] rounded-xl text-white shadow-lg shadow-red-900/10 hover:bg-[#a81a1f] transition-all"
                    >
-                      <div className="bg-white p-3 rounded-xl shadow-sm group-hover/link:bg-[#c41e24] transition-colors">
-                        <LinkIcon className="w-6 h-6 text-[#c41e24] group-hover/link:text-white transition-colors" />
+                      <div className="bg-white p-2 rounded-lg shadow-sm">
+                        <FileText className="w-5 h-5 text-[#c41e24]" />
                       </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-black text-slate-800 uppercase mb-1">{res.titulo}</h4>
-                        <p className="text-[10px] text-slate-400 font-mono truncate w-full">{res.url}</p>
+                      <div>
+                        <h4 className="text-[11px] font-black uppercase mb-0.5">Catálogo Industrial</h4>
+                        <p className="text-[9px] text-white/70">Máquinas y Packaging</p>
                       </div>
                    </a>
-                 ))}
-                 <a 
-                  href={sheet.catalogoUrl || "#"} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="flex items-start gap-4 p-6 bg-[#c41e24] rounded-2xl text-white shadow-xl shadow-red-900/10 hover:bg-[#a81a1f] transition-all"
-                 >
-                    <div className="bg-white p-3 rounded-xl shadow-sm">
-                      <FileText className="w-6 h-6 text-[#c41e24]" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase mb-1">Catálogo Industrial</h4>
-                      <p className="text-[10px] text-white/70">Máquinas y Packaging</p>
-                    </div>
-                 </a>
-              </div>
-            </section>
-
-            <section className="mb-12 text-slate-900">
-               <div className="flex items-center gap-4 mb-8 text-slate-900">
-                <h2 className="bg-slate-800 text-white py-2.5 px-6 font-black text-xs uppercase tracking-[0.2em]">Observaciones</h2>
-                <div className="h-[2px] flex-1 bg-slate-100"></div>
-              </div>
-              <div className="p-8 bg-red-50/50 rounded-[30px] border border-red-100 border-l-[12px] border-l-[#c41e24] shadow-sm">
-                 <div className="flex gap-6">
-                    <CheckCircle2 className="w-8 h-8 text-[#c41e24] shrink-0" />
-                    <div className="space-y-6 flex-1">
-                        <textarea 
-                           className="w-full border-none focus:ring-0 outline-none bg-transparent resize-none text-sm text-slate-700 leading-relaxed font-bold italic overflow-hidden"
-                           rows={1}
-                           onInput={(e) => {
-                             e.currentTarget.style.height = 'auto';
-                             e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                           }}
-                           ref={(el) => {
-                             if (el) {
-                               el.style.height = 'auto';
-                               el.style.height = el.scrollHeight + 'px';
-                             }
-                           }}
-                           value={sheet.pagina3.observaciones}
-                           onChange={(e) => setSheet(prev => ({ 
-                             ...prev, 
-                             pagina3: { ...prev.pagina3, observaciones: e.target.value } 
-                           }))}
-                        />
-                        <div className="pt-6 border-t border-red-200">
-                           <div>
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Soporte Comercial:</span>
-                              <span className="text-xs font-black text-slate-700 block whitespace-pre-line">{sheet.pagina3.contacto_comercial}</span>
-                           </div>
-                        </div>
-                    </div>
-                 </div>
-              </div>
-            </section>
-
-            <div className="flex-1 flex flex-col items-center justify-center gap-6">
-                <div className="w-32 h-32 bg-slate-50 flex items-center justify-center rounded-3xl border-4 border-slate-100 p-4">
-                   <Maximize2 className="w-12 h-12 text-slate-200" />
                 </div>
-                <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.6em]">Scannable Technical Index</p>
+              </section>
+
+              <section className="mb-6 text-slate-900">
+                <div className="flex items-center gap-3 mb-4 text-slate-900">
+                  <h2 className="bg-slate-800 text-white py-1.5 px-5 font-black text-[9px] uppercase tracking-[0.2em]">Observaciones</h2>
+                  <div className="h-[2px] flex-1 bg-slate-100"></div>
+                </div>
+                <div className="p-5 bg-red-50/50 rounded-2xl border border-red-100 border-l-[8px] border-l-[#c41e24] shadow-sm">
+                   <div className="flex gap-4">
+                      <CheckCircle2 className="w-6 h-6 text-[#c41e24] shrink-0" />
+                      <div className="space-y-4 flex-1">
+                          <textarea 
+                             className="w-full border-none focus:ring-0 outline-none bg-transparent resize-none text-xs text-slate-700 leading-relaxed font-bold italic overflow-hidden"
+                             rows={1}
+                             onInput={(e) => {
+                               e.currentTarget.style.height = 'auto';
+                               e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                             }}
+                             ref={(el) => {
+                               if (el) {
+                                 el.style.height = 'auto';
+                                 el.style.height = el.scrollHeight + 'px';
+                               }
+                             }}
+                             value={sheet.pagina3.observaciones}
+                             onChange={(e) => setSheet(prev => ({ 
+                               ...prev, 
+                               pagina3: { ...prev.pagina3, observaciones: e.target.value } 
+                             }))}
+                          />
+                          <div className="pt-3 border-t border-red-200">
+                             <div>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Soporte Comercial:</span>
+                                <span className="text-[11px] font-black text-slate-700 block whitespace-pre-line">{sheet.pagina3.contacto_comercial}</span>
+                             </div>
+                          </div>
+                      </div>
+                   </div>
+                </div>
+              </section>
             </div>
 
-            <footer className="mt-10 pt-8 border-t border-slate-100 flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+            <footer className="mt-3 pt-3 border-t border-slate-100 flex justify-between text-[8px] text-slate-400 font-bold uppercase tracking-widest">
               <span>Aeropuerto Norte 9627. Parque de Negocios ENEA. Pudahuel. Santiago - Chile.</span>
               <div className="flex gap-4">
                 <span>Certificación Vigente</span>
