@@ -3,32 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const maxDuration = 60;
 
-/**
- * Función auxiliar para calcular retraso con Backoff Exponencial y Jitter
- */
-const getBackoffDelay = (attempt: number, baseDelayMs: number = 1000): number => {
-  const exponential = baseDelayMs * Math.pow(2, attempt);
-  const jitter = Math.random() * 500; // Ruido aleatorio entre 0 y 500ms
-  return exponential + jitter;
-};
-
-/**
- * Determina si un error es transitorio (503, 429, UNAVAILABLE, Rate Limit, Timeout)
- */
-const isTransientError = (err: any): boolean => {
-  const errMsg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err || {})).toLowerCase();
-  return (
-    errMsg.includes('503') ||
-    errMsg.includes('unavailable') ||
-    errMsg.includes('high demand') ||
-    errMsg.includes('429') ||
-    errMsg.includes('resource_exhausted') ||
-    errMsg.includes('quota') ||
-    errMsg.includes('rate') ||
-    errMsg.includes('timeout')
-  );
-};
-
 export async function POST(req: NextRequest) {
   try {
     const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -106,7 +80,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Adjuntar archivos (imágenes optimizadas)
+    // Adjuntar imágenes optimizadas
     if (Array.isArray(files)) {
       files.forEach((f: { base64: string; type: string }) => {
         if (f.base64 && f.type) {
@@ -124,49 +98,39 @@ export async function POST(req: NextRequest) {
 
     const genAI = new GoogleGenAI({ apiKey });
     
-    // Cadena de contingencia estricta para producción
+    // Cadena de contingencia exclusiva con la familia vigente Gemini 3
     const candidateModels = [
       "gemini-3.7-flash",
+      "gemini-3.6-flash",
       "gemini-3.5-flash",
-      "gemini-3.5-flash-lite",
-      "gemini-2.5-flash"
+      "gemini-3.5-flash-lite"
     ];
 
     let result = null;
     let lastError: any = null;
-    const MAX_ATTEMPTS = 3;
 
     for (const modelName of candidateModels) {
-      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        try {
-          result = await genAI.models.generateContent({
-            model: modelName,
-            contents: [{ parts }],
-            config: { responseMimeType: "application/json" }
-          });
+      try {
+        console.log(`Intentando generación con modelo: ${modelName}...`);
+        result = await genAI.models.generateContent({
+          model: modelName,
+          contents: [{ parts }],
+          config: { responseMimeType: "application/json" }
+        });
 
-          if (result && result.text) break;
-        } catch (err: any) {
-          lastError = err;
-          const isTransient = isTransientError(err);
-          console.warn(`[Modelo: ${modelName} | Intento ${attempt + 1}/${MAX_ATTEMPTS}] Error:`, err?.message || err);
-
-          // Si es un error transitorio y aún quedan intentos, esperar con Backoff Exponencial + Jitter
-          if (isTransient && attempt < MAX_ATTEMPTS - 1) {
-            const delay = getBackoffDelay(attempt);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          } else {
-            // Si el error no es recuperable (ej. 404 / 400) o agotó intentos, salir del bucle de reintentos
-            break;
-          }
+        if (result && result.text) {
+          console.log(`Generación exitosa con modelo: ${modelName}`);
+          break;
         }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Error con modelo ${modelName}:`, err?.message || err);
+        // Continuar inmediatamente al siguiente modelo de la familia Gemini 3
       }
-
-      if (result && result.text) break;
     }
 
     if (!result || !result.text) {
-      throw lastError || new Error("No se pudo obtener respuesta de la familia de modelos Gemini.");
+      throw lastError || new Error("No se pudo obtener respuesta de los modelos Gemini 3.");
     }
 
     const rawText = result.text.trim();
