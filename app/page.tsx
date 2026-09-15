@@ -503,49 +503,100 @@ export default function AndexportGenerator() {
         compress: true
       });
 
-      // A4 en mm
       const PDF_W = 210;
       const PDF_H = 297;
+
+      // Contenedor oculto fuera del viewport para alojar los clones
+      const hiddenContainer = document.createElement('div');
+      hiddenContainer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: -99999px;
+        width: 794px;
+        background: white;
+        z-index: -1;
+        pointer-events: none;
+      `;
+      document.body.appendChild(hiddenContainer);
 
       for (let i = 0; i < sheets.length; i++) {
         const sheetEl = sheets[i];
 
-        // ── 1. Guardar estilos originales y forzar overflow visible para captura completa ──
-        const originalOverflow = sheetEl.style.overflow;
-        const originalMaxHeight = sheetEl.style.maxHeight;
-        const originalHeight = sheetEl.style.height;
-        sheetEl.style.overflow = 'visible';
-        sheetEl.style.maxHeight = 'none';
-        sheetEl.style.height = 'auto';
+        // ── 1. Clonar la hoja completa (deep clone incluyendo estilos computados) ──
+        const clone = sheetEl.cloneNode(true) as HTMLElement;
 
-        // Capturar usando el tamaño REAL (scrollHeight) del elemento
-        const canvas = await html2canvas(sheetEl, {
+        // ── 2. Liberar todas las restricciones de altura/overflow en el clon ──
+        const releaseConstraints = (el: HTMLElement) => {
+          el.style.height = 'auto';
+          el.style.minHeight = '0';
+          el.style.maxHeight = 'none';
+          el.style.overflow = 'visible';
+          el.style.flex = 'none';
+          el.style.flexShrink = '0';
+        };
+
+        // Aplicar al clon raíz
+        releaseConstraints(clone);
+        clone.style.width = '794px'; // ~210mm en 96dpi
+        clone.style.boxShadow = 'none';
+        clone.style.marginBottom = '0';
+
+        // Aplicar al div interno (el wrapper con h-full flex-1)
+        const innerWrapper = clone.querySelector(':scope > div') as HTMLElement | null;
+        if (innerWrapper) {
+          releaseConstraints(innerWrapper);
+          innerWrapper.style.justifyContent = 'flex-start';
+        }
+
+        // Liberar todos los divs anidados con restricciones de flex
+        clone.querySelectorAll<HTMLElement>('div').forEach(div => {
+          // Solo liberamos la altura si parece tener h-full o flex-1
+          const computed = window.getComputedStyle(div);
+          if (computed.overflow === 'hidden' || computed.maxHeight !== 'none') {
+            div.style.overflow = 'visible';
+            div.style.maxHeight = 'none';
+          }
+        });
+
+        // ── 3. Expandir textareas al contenido completo ──
+        clone.querySelectorAll<HTMLTextAreaElement>('textarea').forEach(ta => {
+          // Obtener el textarea original correspondiente para leer su scrollHeight real
+          ta.style.height = 'auto';
+          ta.style.maxHeight = 'none';
+          ta.style.overflow = 'visible';
+          ta.style.resize = 'none';
+          // Forzar expansión: usar el valor del texto para calcular altura
+          const lineCount = (ta.value || '').split('\n').length;
+          const fontSize = parseFloat(window.getComputedStyle(ta).fontSize) || 12;
+          const lineHeight = parseFloat(window.getComputedStyle(ta).lineHeight) || fontSize * 1.5;
+          ta.style.height = Math.max(ta.scrollHeight, lineCount * lineHeight + 20) + 'px';
+        });
+
+        // ── 4. Montar el clon y esperar un tick para que el navegador calcule layout ──
+        hiddenContainer.innerHTML = '';
+        hiddenContainer.appendChild(clone);
+        await new Promise(resolve => setTimeout(resolve, 80));
+
+        // ── 5. Capturar el clon ──
+        const canvas = await html2canvas(clone, {
           scale: 2,
           useCORS: true,
           allowTaint: true,
           backgroundColor: '#ffffff',
           logging: false,
-          width: sheetEl.scrollWidth,
-          height: sheetEl.scrollHeight,
-          windowWidth: sheetEl.scrollWidth,
-          windowHeight: sheetEl.scrollHeight,
+          width: clone.scrollWidth,
+          height: clone.scrollHeight,
+          windowWidth: clone.scrollWidth,
+          windowHeight: clone.scrollHeight,
         });
-
-        // ── 2. Restaurar estilos originales ──
-        sheetEl.style.overflow = originalOverflow;
-        sheetEl.style.maxHeight = originalMaxHeight;
-        sheetEl.style.height = originalHeight;
 
         if (i > 0) {
           pdf.addPage('a4', 'portrait');
         }
 
-        // ── 3. Escalar proporcionalmente: el contenido SIEMPRE entra en el A4 ──
+        // ── 6. Escalar a A4: el contenido SIEMPRE entra completo ──
         const canvasW = canvas.width;
         const canvasH = canvas.height;
-
-        // Escala para que el ANCHO encaje exactamente en 210mm
-        // Si el contenido es más alto que 297mm, se reduce para que entre
         const scaleByWidth = PDF_W / canvasW;
         const scaledH = canvasH * scaleByWidth;
 
@@ -555,22 +606,21 @@ export default function AndexportGenerator() {
         let yPos = 0;
 
         if (scaledH <= PDF_H) {
-          // El contenido entra completo a escala normal
           renderWidth = PDF_W;
           renderHeight = scaledH;
-          yPos = 0; // alineado al top
         } else {
-          // El contenido es más alto que A4: escalar para que quepa en altura
           const scaleByHeight = PDF_H / canvasH;
           renderHeight = PDF_H;
           renderWidth = canvasW * scaleByHeight;
           xPos = (PDF_W - renderWidth) / 2;
-          yPos = 0;
         }
 
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         pdf.addImage(imgData, 'JPEG', xPos, yPos, renderWidth, renderHeight, undefined, 'FAST');
       }
+
+      // ── 7. Limpiar el contenedor oculto ──
+      document.body.removeChild(hiddenContainer);
 
       const fileName = `Ficha-${sheet.codigo || 'tecnica'}.pdf`;
       pdf.save(fileName);
@@ -578,7 +628,7 @@ export default function AndexportGenerator() {
 
     } catch (error: any) {
       console.error('Error al generar PDF:', error);
-      window.print();
+      alert('Error al generar PDF. Intenta usar el botón Imprimir / PDF de la versión pública.');
     } finally {
       setIsPrinting(false);
     }
