@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { inputText, inputUrl, inputCatalogUrl, productPhotos, specTablePhoto, files } = await req.json();
+    const { inputText, inputUrl, inputCatalogUrl, productPhotos, specTablePhoto, files, pdfText } = await req.json();
 
     const parts: any[] = [
       {
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
         Texto: ${inputText || 'No especificado'}
         URL: ${inputUrl || 'No especificada'}
         URL CATÁLOGO: ${inputCatalogUrl || 'No especificada'}
+        ${pdfText ? `\n--- INFORMACIÓN EXTRAÍDA DE DOCUMENTOS / MANUALES PDF ---\n${pdfText}\n-----------------------------------------------------------\n` : ''}
         
         REGLAS:
         1. TRADUCE todo al ESPAÑOL TÉCNICO.

@@ -84,6 +84,77 @@ const DEFAULT_SHEET: TechnicalSheet = {
   }
 };
 
+interface UploadedFileItem {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  extractedText?: string;
+  base64?: string;
+  images?: string[];
+  status?: 'processing' | 'ready' | 'error';
+}
+
+const processPdfFile = async (file: File): Promise<{ text: string; pagesAsImages: string[] }> => {
+  try {
+    if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = () => {
+          try {
+            (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          } catch (_) {}
+          resolve(true);
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfjsLib = (window as any).pdfjsLib;
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+    const pdf = await loadingTask.promise;
+    
+    let fullText = '';
+    const pagesAsImages: string[] = [];
+    const maxPages = Math.min(pdf.numPages, 30);
+
+    for (let i = 1; i <= maxPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      if (pageText.trim()) {
+        fullText += `\n--- [${file.name} - PÁGINA ${i}] ---\n` + pageText;
+      }
+    }
+
+    // Si el PDF es un escaneo con poco texto, renderizamos las primeras 3 páginas como imágenes livianas
+    if (fullText.trim().length < 80) {
+      const renderPages = Math.min(pdf.numPages, 3);
+      for (let i = 1; i <= renderPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1.2 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          const compressed = canvas.toDataURL('image/jpeg', 0.5);
+          pagesAsImages.push(compressed.split(',')[1]);
+        }
+      }
+    }
+
+    return { text: fullText, pagesAsImages };
+  } catch (err) {
+    console.error("Error al procesar PDF:", err);
+    return { text: '', pagesAsImages: [] };
+  }
+};
+
 // --- Main Component ---
 
 export default function AndexportGenerator() {
@@ -93,7 +164,7 @@ export default function AndexportGenerator() {
   const [inputUrl, setInputUrl] = useState("");
   const [inputCatalogUrl, setInputCatalogUrl] = useState("");
   const [productPhotos, setProductPhotos] = useState<(string | null)[]>([null, null, null, null, null, null]);
-  const [files, setFiles] = useState<{ id: string; name: string; type: string; base64: string; size?: number }[]>([]);
+  const [files, setFiles] = useState<UploadedFileItem[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -241,18 +312,15 @@ export default function AndexportGenerator() {
     reader.readAsDataURL(file);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFiles = e.target.files;
     if (!uploadedFiles) return;
 
-    Array.from(uploadedFiles).forEach(file => {
-      if (file.size > 3.5 * 1024 * 1024) {
-        alert(`⚠️ El archivo "${file.name}" pesa ${(file.size / (1024 * 1024)).toFixed(1)} MB. Vercel limita las peticiones a un máximo de 4.5 MB en total. Te sugerimos subir un PDF con solo las páginas necesarias o más comprimido.`);
-      }
-
-      const reader = new FileReader();
+    for (const file of Array.from(uploadedFiles)) {
+      const fileId = Math.random().toString(36).substr(2, 9);
 
       if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
         reader.onloadend = () => {
           const img = new (window as any).Image();
           img.src = reader.result as string;
@@ -266,28 +334,40 @@ export default function AndexportGenerator() {
             ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
             const compressed = canvas.toDataURL('image/jpeg', 0.6);
             setFiles(prev => [...prev, {
-              id: Math.random().toString(36).substr(2, 9),
+              id: fileId,
               name: file.name,
               type: 'image/jpeg',
               size: file.size,
-              base64: compressed.split(',')[1]
+              base64: compressed.split(',')[1],
+              status: 'ready'
             }]);
           };
         };
         reader.readAsDataURL(file);
-      } else {
-        reader.onloadend = () => {
-          setFiles(prev => [...prev, {
-            id: Math.random().toString(36).substr(2, 9),
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            base64: (reader.result as string).split(',')[1]
-          }]);
-        };
-        reader.readAsDataURL(file);
+      } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        setFiles(prev => [...prev, {
+          id: fileId,
+          name: file.name,
+          type: 'application/pdf',
+          size: file.size,
+          status: 'processing'
+        }]);
+
+        const { text, pagesAsImages } = await processPdfFile(file);
+
+        setFiles(prev => prev.map(f => {
+          if (f.id === fileId) {
+            return {
+              ...f,
+              extractedText: text,
+              images: pagesAsImages,
+              status: 'ready'
+            };
+          }
+          return f;
+        }));
       }
-    });
+    }
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -295,30 +375,41 @@ export default function AndexportGenerator() {
   };
 
   const generateSheet = async () => {
+    // Acumular texto extraído de todos los PDFs
+    const pdfText = files
+      .map(f => f.extractedText)
+      .filter(Boolean)
+      .join('\n\n');
+
+    // Acumular imágenes optimizadas
+    const imagesPayload: { base64: string; type: string }[] = [];
+    files.forEach(f => {
+      if (f.type.startsWith('image/') && f.base64) {
+        imagesPayload.push({ base64: f.base64, type: 'image/jpeg' });
+      }
+      if (f.images && f.images.length > 0) {
+        f.images.forEach(img => {
+          imagesPayload.push({ base64: img, type: 'image/jpeg' });
+        });
+      }
+    });
+
     const payload = {
       inputText,
       inputUrl,
       inputCatalogUrl,
       productPhotos: productPhotos.filter(Boolean).slice(0, 2),
       specTablePhoto,
-      files
+      pdfText,
+      files: imagesPayload
     };
-
-    const payloadString = JSON.stringify(payload);
-    const payloadSizeBytes = new Blob([payloadString]).size;
-    const payloadSizeMB = (payloadSizeBytes / (1024 * 1024)).toFixed(2);
-
-    if (payloadSizeBytes > 4.2 * 1024 * 1024) {
-      alert(`⚠️ Los archivos adjuntos son demasiado pesados (${payloadSizeMB} MB). El servidor (Vercel) permite un máximo de 4.5 MB en total.\n\nPor favor:\n1. Elimina alguno de los documentos adjuntos.\n2. Sube únicamente las páginas del PDF donde están las especificaciones técnicas.`);
-      return;
-    }
 
     setLoading(true);
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: payloadString
+        body: JSON.stringify(payload)
       });
 
       const responseText = await response.text();
@@ -327,7 +418,7 @@ export default function AndexportGenerator() {
         data = JSON.parse(responseText);
       } catch (err) {
         if (response.status === 413 || responseText.toLowerCase().includes('entity too large') || responseText.toLowerCase().includes('body too large')) {
-          throw new Error(`Los documentos o imágenes son demasiado pesados (${payloadSizeMB} MB). Se superó el límite de 4.5 MB de Vercel. Por favor sube PDFs más pequeños o menos páginas.`);
+          throw new Error('La solicitud superó el límite de tamaño de Vercel. Intenta reducir la cantidad de fotos cargadas.');
         }
         throw new Error(`Error en el servidor (${response.status}): ${responseText.slice(0, 150)}`);
       }
@@ -673,11 +764,21 @@ export default function AndexportGenerator() {
                       </div>
                       <div className="min-w-0 flex flex-col">
                         <span className="text-xs font-medium text-slate-600 truncate">{f.name}</span>
-                        {f.size && (
-                          <span className={`text-[10px] ${f.size > 3.5 * 1024 * 1024 ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
-                            {(f.size / (1024 * 1024)).toFixed(1)} MB {f.size > 3.5 * 1024 * 1024 ? '(Muy pesado para Vercel)' : ''}
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-slate-400">
+                            {(f.size / (1024 * 1024)).toFixed(1)} MB
                           </span>
-                        )}
+                          {f.status === 'processing' && (
+                            <span className="text-[10px] text-amber-500 font-semibold flex items-center gap-1">
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" /> Extrayendo texto...
+                            </span>
+                          )}
+                          {f.status === 'ready' && f.type.includes('pdf') && (
+                            <span className="text-[10px] text-emerald-600 font-semibold">
+                              ✓ Texto extraído
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <button 
