@@ -480,155 +480,18 @@ export default function AndexportGenerator() {
 
   const [isPrinting, setIsPrinting] = useState(false);
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => {
     if (isPrinting) return;
     setIsPrinting(true);
 
     try {
       const sheets = document.querySelectorAll<HTMLElement>('.a4-sheet');
       if (sheets.length === 0) {
-        alert('❌ No hay hojas para exportar');
-        setIsPrinting(false);
+        alert('No hay hojas para exportar');
         return;
       }
 
-      const html2canvasModule = await import('html2canvas');
-      const html2canvas = html2canvasModule.default || html2canvasModule;
-      const { jsPDF } = await import('jspdf');
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-
-      const PDF_W = 210;
-      const PDF_H = 297;
-
-      // Contenedor oculto fuera del viewport para alojar los clones
-      const hiddenContainer = document.createElement('div');
-      hiddenContainer.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: -99999px;
-        width: 794px;
-        background: white;
-        z-index: -1;
-        pointer-events: none;
-      `;
-      document.body.appendChild(hiddenContainer);
-
-      for (let i = 0; i < sheets.length; i++) {
-        const sheetEl = sheets[i];
-
-        // ── 1. Clonar la hoja completa (deep clone incluyendo estilos computados) ──
-        const clone = sheetEl.cloneNode(true) as HTMLElement;
-
-        // ── 2. Liberar todas las restricciones de altura/overflow en el clon ──
-        const releaseConstraints = (el: HTMLElement) => {
-          el.style.height = 'auto';
-          el.style.minHeight = '0';
-          el.style.maxHeight = 'none';
-          el.style.overflow = 'visible';
-          el.style.flex = 'none';
-          el.style.flexShrink = '0';
-        };
-
-        // Aplicar al clon raíz
-        releaseConstraints(clone);
-        clone.style.width = '794px'; // ~210mm en 96dpi
-        clone.style.boxShadow = 'none';
-        clone.style.marginBottom = '0';
-
-        // Aplicar al div interno (el wrapper con h-full flex-1)
-        const innerWrapper = clone.querySelector(':scope > div') as HTMLElement | null;
-        if (innerWrapper) {
-          releaseConstraints(innerWrapper);
-          innerWrapper.style.justifyContent = 'flex-start';
-        }
-
-        // Liberar todos los divs anidados con restricciones de flex
-        clone.querySelectorAll<HTMLElement>('div').forEach(div => {
-          // Solo liberamos la altura si parece tener h-full o flex-1
-          const computed = window.getComputedStyle(div);
-          if (computed.overflow === 'hidden' || computed.maxHeight !== 'none') {
-            div.style.overflow = 'visible';
-            div.style.maxHeight = 'none';
-          }
-        });
-
-        // ── 3. Expandir textareas al contenido completo ──
-        clone.querySelectorAll<HTMLTextAreaElement>('textarea').forEach(ta => {
-          // Obtener el textarea original correspondiente para leer su scrollHeight real
-          ta.style.height = 'auto';
-          ta.style.maxHeight = 'none';
-          ta.style.overflow = 'visible';
-          ta.style.resize = 'none';
-          // Forzar expansión: usar el valor del texto para calcular altura
-          const lineCount = (ta.value || '').split('\n').length;
-          const fontSize = parseFloat(window.getComputedStyle(ta).fontSize) || 12;
-          const lineHeight = parseFloat(window.getComputedStyle(ta).lineHeight) || fontSize * 1.5;
-          ta.style.height = Math.max(ta.scrollHeight, lineCount * lineHeight + 20) + 'px';
-        });
-
-        // ── 4. Montar el clon y esperar un tick para que el navegador calcule layout ──
-        hiddenContainer.innerHTML = '';
-        hiddenContainer.appendChild(clone);
-        await new Promise(resolve => setTimeout(resolve, 80));
-
-        // ── 5. Capturar el clon ──
-        const canvas = await html2canvas(clone, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          width: clone.scrollWidth,
-          height: clone.scrollHeight,
-          windowWidth: clone.scrollWidth,
-          windowHeight: clone.scrollHeight,
-        });
-
-        if (i > 0) {
-          pdf.addPage('a4', 'portrait');
-        }
-
-        // ── 6. Escalar a A4: el contenido SIEMPRE entra completo ──
-        const canvasW = canvas.width;
-        const canvasH = canvas.height;
-        const scaleByWidth = PDF_W / canvasW;
-        const scaledH = canvasH * scaleByWidth;
-
-        let renderWidth: number;
-        let renderHeight: number;
-        let xPos = 0;
-        let yPos = 0;
-
-        if (scaledH <= PDF_H) {
-          renderWidth = PDF_W;
-          renderHeight = scaledH;
-        } else {
-          const scaleByHeight = PDF_H / canvasH;
-          renderHeight = PDF_H;
-          renderWidth = canvasW * scaleByHeight;
-          xPos = (PDF_W - renderWidth) / 2;
-        }
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        pdf.addImage(imgData, 'JPEG', xPos, yPos, renderWidth, renderHeight, undefined, 'FAST');
-      }
-
-      // ── 7. Limpiar el contenedor oculto ──
-      document.body.removeChild(hiddenContainer);
-
-      const fileName = `Ficha-${sheet.codigo || 'tecnica'}.pdf`;
-      pdf.save(fileName);
-      console.log('✅ PDF exportado sin recortes');
-
-    } catch (error: any) {
-      console.error('Error al generar PDF:', error);
-      alert('Error al generar PDF. Intenta usar el botón Imprimir / PDF de la versión pública.');
+      window.print();
     } finally {
       setIsPrinting(false);
     }
@@ -1147,9 +1010,16 @@ export default function AndexportGenerator() {
                   </div>
                   <ul className="space-y-1.5">
                     {sheet.pagina2.aplicaciones_industriales.map((app, i) => (
-                      <li key={i} className="flex items-center gap-2 text-[11px] text-slate-600 font-medium group">
-                        <div className="w-1.5 h-1.5 bg-[#c41e24] rounded-full"></div>
-                        <input className="flex-1 bg-transparent outline-none border-b border-transparent hover:border-slate-100" value={app} onChange={e=>{const n=[...sheet.pagina2.aplicaciones_industriales]; n[i]=e.target.value; setSheet(p=>({...p, pagina2:{...p.pagina2, aplicaciones_industriales:n}}))}} />
+                      <li key={i} className="flex items-start gap-2 text-[11px] text-slate-600 font-medium group">
+                        <div className="w-1.5 h-1.5 mt-1.5 shrink-0 bg-[#c41e24] rounded-full"></div>
+                        <textarea
+                          className="min-w-0 flex-1 bg-transparent outline-none resize-none overflow-hidden border-b border-transparent hover:border-slate-100 leading-relaxed"
+                          rows={1}
+                          value={app}
+                          onInput={event => { event.currentTarget.style.height = 'auto'; event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`; }}
+                          ref={element => { if (element) { element.style.height = 'auto'; element.style.height = `${element.scrollHeight}px`; } }}
+                          onChange={event => { const aplicaciones = [...sheet.pagina2.aplicaciones_industriales]; aplicaciones[i] = event.target.value; setSheet(previous => ({ ...previous, pagina2: { ...previous.pagina2, aplicaciones_industriales: aplicaciones } })); }}
+                        />
                         <button onClick={()=>{const n=sheet.pagina2.aplicaciones_industriales.filter((_,idx)=>idx!==i); setSheet(p=>({...p, pagina2:{...p.pagina2, aplicaciones_industriales:n}}))}} className="text-red-400 opacity-0 group-hover:opacity-100">×</button>
                       </li>
                     ))}

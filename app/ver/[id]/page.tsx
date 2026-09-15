@@ -236,9 +236,9 @@ export default function ClientView() {
                 </div>
                 <ul className="space-y-2">
                   {sheet.pagina2.aplicaciones_industriales.map((app: string, i: number) => (
-                    <li key={i} className="flex items-center gap-3 text-[12px] text-slate-600 font-medium">
-                      <div className="w-1.5 h-1.5 bg-[#c41e24] rounded-full"></div>
-                      {app}
+                    <li key={i} className="flex items-start gap-3 text-[12px] text-slate-600 font-medium">
+                      <div className="w-1.5 h-1.5 mt-1.5 shrink-0 bg-[#c41e24] rounded-full"></div>
+                      <span className="min-w-0 whitespace-pre-wrap break-words">{app}</span>
                     </li>
                   ))}
                 </ul>
